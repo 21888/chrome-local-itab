@@ -70,6 +70,7 @@
         tasksCurrent: 'Current', tasksIncoming: 'Replacement', tasksActive: 'Active', tasksDone: 'Completed', tasksDeleted: 'Removed', tasksRecoveryCount: 'Previous copies',
         tasksConflict: 'This task list changed in another page. Your draft is still here. Review the latest version before retrying.', tasksLatest: 'Latest saved task', tasksOverwrite: 'Replace latest with my edit',
         tasksEnable: 'Show Tasks on the new tab page', tasksEnableHelp: 'Optional and device-local. Hiding the card keeps its tasks.',
+        tasksSubscriptionError: 'Task change monitoring could not start. Reopen this page to try again. No tasks were changed.',
         tasksErrorRead: 'Could not read local tasks. Nothing was replaced. Retry when storage is available.',
         tasksErrorWrite: 'Could not confirm the save. Your draft is still here. Retry safely.',
         tasksErrorText: 'Enter a nonempty plain-text task, up to 1,000 characters. Text is never silently shortened.',
@@ -91,7 +92,7 @@
     function errorText(error) {
         const code = error?.code;
         if (code === 'CONFLICT') return t('tasksConflict');
-        return t({ READ: 'tasksErrorRead', WRITE: 'tasksErrorWrite', VERIFY: 'tasksErrorWrite', TEXT: 'tasksErrorText', TEXT_LIMIT: 'tasksErrorText',
+        return t({ SUBSCRIPTION: 'tasksSubscriptionError', READ: 'tasksErrorRead', WRITE: 'tasksErrorWrite', VERIFY: 'tasksErrorWrite', TEXT: 'tasksErrorText', TEXT_LIMIT: 'tasksErrorText',
             CAPACITY: 'tasksErrorCapacity', RECOVERY_LIMIT: 'tasksErrorRecovery', SIZE_LIMIT: 'tasksErrorSize', UNAVAILABLE: 'tasksErrorUnavailable',
             INVALID: 'tasksErrorInvalid', VERSION: 'tasksErrorInvalid', FILE: 'tasksErrorFile' }[code] || 'tasksErrorWrite');
     }
@@ -289,7 +290,9 @@
             const fileRow = el('div', 'tasks-data-actions');
             this.fileInput = el('input'); this.fileInput.type = 'file'; this.fileInput.accept = '.json,application/json'; this.fileInput.hidden = true;
             this.fileInput.addEventListener('change', () => this.importFile());
-            fileRow.append(button('tasksExport', () => this.export()), button('tasksImport', () => this.fileInput.click()), this.fileInput);
+            this.exportButton = button('tasksExport', () => this.export());
+            this.importButton = button('tasksImport', () => { if (!this.controller.subscriptionFailed) this.fileInput.click(); });
+            fileRow.append(this.exportButton, this.importButton, this.fileInput);
             this.copies = el('div', 'tasks-copies'); this.data.append(fileRow, this.copies);
             this.feedback = el('div', 'tasks-feedback'); this.status = el('span'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
             this.retry = button('tasksRetry', event => {
@@ -2459,6 +2462,8 @@
             // The host callback may retire/replace the source or synchronously
             // publish a newer render. Only the latest accepted render continues.
             if (!viewSourceCurrent(this, lifecycle) || lifecycle.render !== render) return;
+            this.input.disabled = controller.subscriptionFailed;
+            this.exportButton.disabled = this.importButton.disabled = this.fileInput.disabled = controller.subscriptionFailed;
             this.addButton.disabled = busy || !state || this.quickEntryComposing; this.batchButton.disabled = busy || !state;
             const focused = this.host.contains(document.activeElement) ? document.activeElement : null;
             const taskId = focused?.closest('[data-task-id]')?.dataset.taskId, action = focused?.dataset.taskAction;
@@ -2691,6 +2696,7 @@
             document.addEventListener('visibilitychange', departed, true); root.addEventListener?.('blur', departed);
         }
         async export() {
+            if (this.controller.subscriptionFailed) return;
             const lifecycle = viewLifecycles.get(this), current = () => viewSourceCurrent(this, lifecycle);
             if (!current()) return;
             const previousError = this.localError;
@@ -2730,6 +2736,7 @@
             report(error);
         }
         async importFile() {
+            if (this.controller.subscriptionFailed) return;
             const owner = editSources.get(this);
             if (!this.editSourceCurrent(owner)) return;
             const { store } = owner;
@@ -2751,6 +2758,7 @@
             } finally { if (generation === this.reviewGeneration) { this.pendingReview = false; this.refreshCopyControls(); } }
         }
         async reviewRecovery(id) {
+            if (this.controller.subscriptionFailed) return;
             const owner = editSources.get(this);
             if (!this.editSourceCurrent(owner)) return;
             const { store } = owner;
@@ -2881,7 +2889,7 @@
         controller.subscribe(() => {
             checkbox.checked = controller.state?.enabled === true; checkbox.disabled = !controller.state || !!controller.pending;
             feedback.textContent = controller.error ? errorText(controller.error) : controller.status === 'saved' ? t('tasksSaved') : '';
-            retry.hidden = !controller.error;
+            retry.hidden = !controller.error || controller.error.code === 'SUBSCRIPTION';
         });
         checkbox.disabled = true; retry.hidden = true;
         checkbox.addEventListener('change', () => controller.action('enable', { enabled: checkbox.checked }).catch(() => {}));

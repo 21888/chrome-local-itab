@@ -1459,6 +1459,9 @@
   "tasksEnableHelp": {
     "message": "可选且仅此设备。隐藏卡片会保留待办。"
   },
+  "tasksSubscriptionError": {
+    "message": "无法启动待办变更监听。请重新打开此页面再试。没有更改任何待办。"
+  },
   "tasksErrorRead": {
     "message": "无法读取本地待办，未替换任何内容。存储可用后请重试。"
   },

@@ -12,13 +12,21 @@
             // State revisions, subscription notifications and retries share one
             // construction source. Replacing public fields is not a source switch.
             const source = { store, backend: store.backend, refresh: 0, feedback: 0 }; sources.set(this, source);
-            this.unsubscribe = store.subscribe(() => { if (current(this, source)) this.refresh().catch(() => {}); });
+            this.unsubscribe = () => {};
+            try {
+                this.unsubscribe = store.subscribe(() => { if (!source.subscriptionFailed && current(this, source)) this.refresh().catch(() => {}); });
+            } catch (_) {
+                source.subscriptionFailed = true;
+                this.status = 'error'; this.error = api.fault('SUBSCRIPTION');
+            }
         }
+        get subscriptionFailed() { return sources.get(this).subscriptionFailed === true; }
         subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
         emit() { if (!this.closed) this.listeners.forEach(fn => fn(this)); }
         async refresh() {
             const source = sources.get(this);
             if (!current(this, source)) throw api.fault('UNAVAILABLE');
+            if (source.subscriptionFailed) { this.emit(); throw api.fault('SUBSCRIPTION'); }
             const refresh = ++source.refresh, feedback = source.feedback;
             try {
                 const state = await source.store.read();
@@ -41,6 +49,7 @@
             if (this.pending) return this.pending;
             const source = sources.get(this);
             if (!current(this, source)) return Promise.reject(api.fault('UNAVAILABLE'));
+            if (source.subscriptionFailed) return Promise.reject(api.fault('SUBSCRIPTION'));
             // Older refreshes cannot replace this mutation's pending/outcome
             // feedback, including a read started while the mutation was pending.
             source.feedback++;
@@ -70,6 +79,7 @@
             return promise;
         }
         dismissRetry(operationId) {
+            if (sources.get(this).subscriptionFailed) return;
             if (!this.pending && this.retryCommand?.operationId === operationId) {
                 this.retryCommand = null; this.error = null; this.status = 'ready'; this.emit();
             }
@@ -79,6 +89,7 @@
             if (this.pending) return this.pending;
             const source = sources.get(this);
             if (!current(this, source)) return Promise.reject(api.fault('UNAVAILABLE'));
+            if (source.subscriptionFailed) return Promise.reject(api.fault('SUBSCRIPTION'));
             return this.run(source.store.request(kind, values));
         }
         destroy() { this.closed = true; this.unsubscribe(); this.listeners.clear(); }

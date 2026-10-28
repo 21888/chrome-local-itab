@@ -1459,6 +1459,9 @@
   "tasksEnableHelp": {
     "message": "Optional and device-local. Hiding the card keeps its tasks."
   },
+  "tasksSubscriptionError": {
+    "message": "Task change monitoring could not start. Reopen this page to try again. No tasks were changed."
+  },
   "tasksErrorRead": {
     "message": "Could not read local tasks. Nothing was replaced. Retry when storage is available."
   },
