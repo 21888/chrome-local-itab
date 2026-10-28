@@ -40,6 +40,46 @@ The timer's existing interval, clock, storage and draft rules are unchanged.
 
 Synthetic in-memory storage, clocks and modeled DOM only; no real user data,
 browser profile, provider or network request. No native-browser acceptance is
-claimed for this change. No GUI session, full regression rerun, build, version
-bump, Release, Chrome Web Store action or screenshot upload was performed. The
-existing Chrome Web Store data-loss incident remains outside this change.
+claimed by the model checks above. No full regression rerun, build, version bump,
+Release, Chrome Web Store action or screenshot upload was performed. The existing
+Chrome Web Store data-loss incident remains outside this change.
+
+## Native component check: partial, visibility not established
+
+2026-10-28 15:26–15:29 UTC. A dedicated loopback 8836 page mounted the actual
+Focus Store, Controller, View and CSS, with four frozen production files matching
+local `3f826125` before and after the check. Chrome used native Web Locks and
+clocks. Only the Chrome storage boundary and one-shot Pause failures were
+synthetic in-memory data. This was not an installed extension, full new-tab page
+or evidence of a real Chrome storage fault; the fixture CSP denied outgoing
+connections.
+
+Confirmed visibly in the real browser:
+
+- Start succeeded. Rejected Pause left the saved timer running, displayed the
+  existing failure guidance and **Read latest state**, and recorded two write
+  attempts / one committed write. Explicit **Read latest state** changed reads
+  from 6 to 7, cleared the error and kept **Pause**, without another write.
+- A second Pause committed but then rejected its acknowledgement. The UI showed
+  **Paused**, **Resume**, the failure guidance and **Read latest state** together.
+  The cumulative count was three attempts / two commits. Explicit recovery
+  changed reads from 10 to 11, cleared the error and retained **Resume**, without
+  repeating Pause or adding a write. Application-error journal remained empty.
+
+**The changed tab-return path is not natively accepted by this check.** An owned
+away tab was opened, then the native tab strip was used to return. A single
+normal native Chrome minimize/restore was also tried. The journal recorded zero
+`visibilitychange` events after both attempts, with only the initial trusted
+`pageshow`; reads stayed at 6 until explicit recovery. Thus neither route
+established the required browser-trusted hidden → visible sequence. Keeping the
+error visible during those actions is not proof that the new background-refresh
+call ran. No event was manually dispatched, no visibility property overridden,
+and no browser emulation, flags, permissions or further retries were used. The
+four red-to-green model cases remain separate evidence for that path.
+
+Text observations are retained locally in `evidence/focus-tab-return/`, including
+the zero-event observations, both failures/recoveries and runtime hashes. The
+two owned test tabs and dedicated server Terminal tab were closed, the server
+exited normally on Ctrl+C, and the other browser tab was left untouched. GUI
+ownership was released before documentation work. No screenshots or fixture
+binaries were uploaded.
