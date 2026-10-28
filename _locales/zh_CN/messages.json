@@ -2662,7 +2662,7 @@
     "message": "保存分钟数"
   },
   "focusDraftRetained": {
-    "message": "尚未保存的分钟数会保留在此页面。该时段准备就绪后，可继续编辑。"
+    "message": "未保存的分钟数仍保留在本页。计时器准备就绪后，请在“时段”中切回原时段，再选择“保存分钟数”。"
   },
   "focusWorkspaceUnavailable": {
     "message": "此标签页的计时器已不可用"

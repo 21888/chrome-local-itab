@@ -20,7 +20,7 @@
         focusEnable: 'Show Focus timer on the new tab page', focusEnableHelp: 'Optional and device-local. Hiding it keeps the current session and deadline.',
         focusSubscriptionError: 'The timer could not watch saved changes. Reopen this page before editing. Saved state has not been changed.',
         focusLoading: 'Loading local timer…', focusSaving: 'Saving timer…', focusError: 'Could not confirm the timer change. Read the latest state before trying again.',
-        focusDraftRetained: 'Your unsaved minutes are kept on this page. Finish editing when that interval is ready.', focusSaveMinutes: 'Save minutes',
+        focusDraftRetained: 'Your unsaved minutes are kept on this page. When the timer is ready, use Interval to return to their original interval, then choose Save minutes.', focusSaveMinutes: 'Save minutes',
         focusWorkspaceUnavailable: 'Timer unavailable in this tab',
         focusWorkspaceReopen: 'Reopen the workspace to read its saved timer. Any unsaved minutes remain on this page.',
         focusWorkspaceError: 'The previous timer operation could not be confirmed. Reopen the workspace to check its saved state.',

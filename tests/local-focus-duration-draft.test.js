@@ -124,7 +124,7 @@ test('duration draft: external running state owns the visible timer and retains 
     const m = model(); await m.ready(); m.type('30'); const other = m.h.controller(); await other.refresh(); await other.action('start'); await m.h.flush();
     const running = m.h.state, writes = m.h.writes;
     assert.equal(m.view.minutes.value, '25'); assert.equal(m.view.minutes.disabled, true); assert.equal(m.view.start.textContent, 'Pause');
-    assert.equal(m.view.feedback.textContent, 'Your unsaved minutes are kept on this page. Finish editing when that interval is ready.'); m.guarded(true);
+    assert.equal(m.view.feedback.textContent, 'Your unsaved minutes are kept on this page. When the timer is ready, use Interval to return to their original interval, then choose Save minutes.'); m.guarded(true);
     m.view.minutes.dispatch('change'); m.view.minutes.dispatch('input'); await m.c.refresh(); await m.h.flush();
     assert.deepEqual(m.h.state, running); assert.equal(m.h.writes, writes, 'no draft command affects the remote run');
     await other.action('pause'); await m.h.flush(); assert.equal(m.view.minutes.value, '25'); m.guarded(true);

@@ -2662,7 +2662,7 @@
     "message": "Save minutes"
   },
   "focusDraftRetained": {
-    "message": "Your unsaved minutes are kept on this page. Finish editing when that interval is ready."
+    "message": "Your unsaved minutes are kept on this page. When the timer is ready, use Interval to return to their original interval, then choose Save minutes."
   },
   "focusWorkspaceUnavailable": {
     "message": "Timer unavailable in this tab"

@@ -86,7 +86,8 @@
             // Validate before invoking the view's blur-style action, which may
             // otherwise normalize an invalid input and make it appear clean.
             const value = Number(focus.minutes?.value), state = focus.controller.snapshot?.();
-            if (focus.durationDrafts.size === 1 && state?.session?.status === 'ready' &&
+            // A retained draft for the other interval must not save this phase.
+            if (focus.durationDrafts.size === 1 && state?.session?.status === 'ready' && focus.durationDrafts.has(state.session.phase) &&
                 Number.isInteger(value) && value >= 1 && value <= 180) {
                 focus.commitDurationDraft?.(); await waitForPending();
             }
