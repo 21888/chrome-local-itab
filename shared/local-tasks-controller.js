@@ -36,7 +36,7 @@
                 // A notification may observe a real commit whose acknowledgement
                 // failed. Publish that state for Undo/render without clearing the
                 // newer mutation's error, retry or Saved feedback.
-                if (feedback === source.feedback && (this.status === 'loading' || (this.error?.code === 'READ' && !this.retryCommand))) {
+                if (feedback === source.feedback && (this.status === 'loading' || (['READ', 'WORKSPACE_READ'].includes(this.error?.code) && !this.retryCommand))) {
                     this.status = 'ready'; this.error = null;
                 }
                 this.emit(); return state;

@@ -89,8 +89,8 @@
         const node = el('button', `tasks-button ${className}`.trim(), t(key)); node.type = 'button';
         node.addEventListener('click', action); return node;
     }
-    function errorText(error) {
-        const code = error?.code;
+    function errorText(error, readOnly = false) {
+        const code = readOnly && error?.code === 'WORKSPACE_READ' ? 'READ' : error?.code;
         if (code === 'CONFLICT') return t('tasksConflict');
         return t({ SUBSCRIPTION: 'tasksSubscriptionError', READ: 'tasksErrorRead', WRITE: 'tasksErrorWrite', VERIFY: 'tasksErrorWrite', TEXT: 'tasksErrorText', TEXT_LIMIT: 'tasksErrorText',
             CAPACITY: 'tasksErrorCapacity', RECOVERY_LIMIT: 'tasksErrorRecovery', SIZE_LIMIT: 'tasksErrorSize', UNAVAILABLE: 'tasksErrorUnavailable',
@@ -2536,8 +2536,10 @@
                 : !state?.records.some(t => t.id === this.undo.id && t.version === this.undo.version && t.state === this.undo.state));
             this.undoButton.disabled = busy;
             const error = this.localError || controller.error;
-            this.status.textContent = error ? errorText(error) : controller.status === 'saved' && this.input.value ? t('tasksDraftRemains') : t({ loading: 'tasksLoading', saving: 'tasksSaving', saved: 'tasksSaved', ready: 'tasksReady' }[controller.status] || 'tasksReady');
-            this.feedback.classList.toggle('is-error', !!error); this.retry.hidden = !error || !['READ', 'WRITE', 'VERIFY'].includes(error.code) || !!this.localError || (!!controller.retryCommand && controller.retryCommand.operationId !== this.retryEffectOperationId);
+            // Only a read with no retained mutation can promise nothing changed.
+            const readFailure = error === controller.error && !controller.retryCommand && error?.code === 'WORKSPACE_READ';
+            this.status.textContent = error ? errorText(error, readFailure) : controller.status === 'saved' && this.input.value ? t('tasksDraftRemains') : t({ loading: 'tasksLoading', saving: 'tasksSaving', saved: 'tasksSaved', ready: 'tasksReady' }[controller.status] || 'tasksReady');
+            this.feedback.classList.toggle('is-error', !!error); this.retry.hidden = !error || (!readFailure && !['READ', 'WRITE', 'VERIFY'].includes(error.code)) || !!this.localError || (!!controller.retryCommand && controller.retryCommand.operationId !== this.retryEffectOperationId);
             this.retry.disabled = busy;
         }
         rememberUndo(command, saved) {
@@ -2888,7 +2890,7 @@
         host.classList.add('local-tasks-settings'); host.replaceChildren(label, el('p', 'tasks-help', t('tasksEnableHelp')), el('p', 'tasks-help', t('tasksHelp')), feedback, retry);
         controller.subscribe(() => {
             checkbox.checked = controller.state?.enabled === true; checkbox.disabled = !controller.state || !!controller.pending;
-            feedback.textContent = controller.error ? errorText(controller.error) : controller.status === 'saved' ? t('tasksSaved') : '';
+            feedback.textContent = controller.error ? errorText(controller.error, !controller.retryCommand) : controller.status === 'saved' ? t('tasksSaved') : '';
             retry.hidden = !controller.error || controller.error.code === 'SUBSCRIPTION';
         });
         checkbox.disabled = true; retry.hidden = true;

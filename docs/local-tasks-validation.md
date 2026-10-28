@@ -53,3 +53,7 @@ A separate editor now previews and atomically appends nonblank lines, preserving
 ## Ordinary Edit keyboard validation — 2026-10-10
 
 Native testing found and separately repaired lost Escape handling after keyboard Save failed validation. The focused control transfers to the same editor before disabling, with stale-callback ownership checks. [Regression coverage and native evidence scope](tasks-edit-keyboard-validation.md).
+
+## Workspace-backed read Retry (2026-10-28)
+
+[Workspace read recovery validation](tasks-workspace-read-recovery-validation.md) closes an actual initial `WORKSPACE_READ` dashboard Retry and stale Settings feedback gap. Successful read recovery acknowledges only its read-only failure; a retained mutation, including real commit followed by read-back failure, keeps its uncertain-save feedback and exact receipt. The model journey includes unsaved draft retention and departure/return through the actual workspace picker and Session. Historical data-loss and native release gates are unchanged.
