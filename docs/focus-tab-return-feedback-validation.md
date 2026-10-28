@@ -16,8 +16,8 @@ the failed Pause operation.
 The visibility handler now uses the controller's existing background-refresh
 path. It still reads and publishes saved state; it preserves the failed action's
 feedback rather than borrowing explicit recovery authority. **Read latest
-state** remains a read-only recovery action, never a replay of Pause. The timer's
-existing interval, clock, storage and draft rules are unchanged.
+state** does not replay Pause; in these fixed-clock cases it performs no write.
+The timer's existing interval, clock, storage and draft rules are unchanged.
 
 ## Verification
 
