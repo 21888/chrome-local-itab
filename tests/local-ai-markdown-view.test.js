@@ -18,9 +18,9 @@ const sourceUrl = 'https://example.com/private/conversation?token=sensitive-sour
 const savedBody = '  Exact current 中文 🧪 {{topic}}\r\n<script>alert("literal")</script>\n```\n\\path\t  ';
 const savedNotes = '  Saved annotation 中文 🧪\r\n<em>literal notes</em>  ';
 
-async function mount(implementation) {
+async function mount(implementation, aggregateTextContent = false) {
     const h = implementation.harness.setup();
-    const doc = createDocument({ blurUnavailableFocus: true });
+    const doc = createDocument({ blurUnavailableFocus: true, aggregateTextContent });
     doc.documentElement.lang = 'en';
     const host = doc.createElement('div'); doc.body.append(host);
     const downloads = { blobs: [], clicks: [], revoked: [], anchors: [] }, events = new Map();
@@ -134,7 +134,7 @@ for (const implementation of implementations) {
         assert.deepEqual(h.downloads.clicks, [{ href: 'blob:markdown-1', filename, connected: true }]);
         assert.deepEqual(h.downloads.revoked, ['blob:markdown-1']);
         assert.equal(h.downloads.anchors.filter(node => node.download === filename && node.isConnected).length, 0);
-        assert.match(h.view.status.textContent, /Download requested/);
+        assert.match((h.view.markdownStatus || h.view.status).textContent, /Download requested/);
         assert.equal(h.view.exportingMarkdown, false);
         assertNoWrite(h, before, writes); c.dispose();
     });
@@ -217,7 +217,7 @@ for (const implementation of implementations) {
             if (failure === 'click' || failure === 'revokeObjectURL') assert.deepEqual(h.downloads.revoked, ['blob:markdown-1']);
             if (failure !== 'revokeObjectURL') {
                 assert.equal(h.downloads.clicks.length, 0);
-                assert.match(h.view.status.textContent, /Markdown export could not be requested/);
+                assert.match((h.view.markdownStatus || h.view.status).textContent, /Markdown export could not be requested/);
             }
             assertNoWrite(h, before, writes); c.dispose();
         });
@@ -397,4 +397,64 @@ test('collection: no source opt-in appears when the saved item has no source URL
     assert.equal(overlay.querySelector('input'), null);
     overlay.querySelector('.prompt-primary').dispatch('click'); await pending;
     assert.equal(h.downloads.clicks.length, 1); c.dispose();
+});
+
+for (const implementation of implementations.filter(item => item.kind === 'prompt')) {
+    for (const outcome of ['success', 'failure']) test(`${implementation.kind}: saved-item Markdown ${outcome} preserves other unsaved draft warning`, async () => {
+        const h = await mount(implementation, true), c = h.controller;
+        await seed(h);
+        const before = h.h.raw, writes = h.h.writes;
+        const warning = h.view.status.textContent;
+        assert.match(warning, /Unsaved drafts/);
+        const drafts = [...c.drafts.entries()].map(([id, draft]) => [id, clone(draft)]);
+        h.view.dialog = async () => true;
+        if (outcome === 'failure') h.root.URL.createObjectURL = () => { throw new Error('synthetic Blob URL failure'); };
+        await h.view.exportMarkdown();
+        assert.equal(h.view.status.textContent, warning, 'export feedback must not replace the unsaved-work warning');
+        assert.match(h.view.markdownStatus.textContent, outcome === 'success' ? /Download requested/ : /could not be requested/);
+        assert.equal(h.view.markdownStatus.classList.contains('error'), outcome === 'failure');
+        assert.deepEqual([...c.drafts.entries()].map(([id, draft]) => [id, clone(draft)]), drafts);
+        assert.equal(h.downloads.clicks.length, outcome === 'success' ? 1 : 0);
+        assertNoWrite(h, before, writes); c.dispose();
+    });
+}
+
+test('prompt: failed Markdown request, Cancel and explicit retry keep draft warning and distinct feedback', async () => {
+    const h = await mount(implementations[0], true), c = h.controller; await seed(h);
+    const warning = h.view.status.textContent, before = h.h.raw, writes = h.h.writes;
+    const originalCreate = h.root.URL.createObjectURL;
+    h.root.URL.createObjectURL = () => { throw new Error('synthetic URL failure'); };
+    const accept = () => h.doc.body.querySelector('.prompt-dialog-overlay').querySelector('.prompt-primary').dispatch('click');
+    let pending = h.view.exportMarkdown(); accept(); await pending;
+    const failure = h.view.markdownStatus.textContent;
+    assert.match(failure, /could not be requested/); assert.equal(h.view.status.textContent, warning);
+    pending = h.view.exportMarkdown();
+    h.doc.body.querySelector('.prompt-dialog-overlay').querySelector('button').dispatch('click'); await pending;
+    assert.equal(h.view.markdownStatus.textContent, failure); assert.equal(h.view.status.textContent, warning);
+    assert.equal(h.downloads.clicks.length, 0);
+    h.root.URL.createObjectURL = originalCreate;
+    pending = h.view.exportMarkdown(); accept(); await pending;
+    assert.match(h.view.markdownStatus.textContent, /Download requested/);
+    assert.doesNotMatch(h.view.markdownStatus.textContent, /could not be requested/);
+    assert.equal(h.view.markdownStatus.classList.contains('error'), false);
+    assert.equal(h.view.markdownStatus.getAttribute('role'), 'status');
+    assert.equal(h.view.markdownStatus.getAttribute('aria-live'), 'polite');
+    assert.equal(h.view.status.textContent, warning); assert.equal(c.draftCount(), 1);
+    assert.equal(h.downloads.clicks.length, 1); assertNoWrite(h, before, writes); c.dispose();
+});
+
+for (const settle of ['accept', 'reject']) test(`prompt: newer selection clears old Markdown feedback and stale ${settle} cannot replace current warning`, async () => {
+    const h = await mount(implementations[0], true), c = h.controller; const { other } = await seed(h);
+    const before = h.h.raw, writes = h.h.writes, originalDialog = h.view.dialog;
+    h.view.dialog = async () => true; await h.view.exportMarkdown();
+    assert.match(h.view.markdownStatus.textContent, /Download requested/);
+    const pendingReview = {}; pendingReview.promise = new Promise((resolve, reject) => Object.assign(pendingReview, { resolve, reject })); h.view.dialog = () => pendingReview.promise;
+    const pending = h.view.exportMarkdown(); c.select(other.id);
+    assert.equal(h.view.markdownStatus.textContent, '');
+    const warning = h.view.status.textContent, draft = clone(c.draft());
+    if (settle === 'accept') pendingReview.resolve(true); else pendingReview.reject(new Error('stale review'));
+    await pending;
+    assert.equal(h.view.markdownStatus.textContent, ''); assert.equal(h.view.status.textContent, warning);
+    assert.deepEqual(clone(c.draft()), draft); assert.equal(h.downloads.clicks.length, 1);
+    h.view.dialog = originalDialog; assertNoWrite(h, before, writes); c.dispose();
 });

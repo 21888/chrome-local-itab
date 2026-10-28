@@ -130,6 +130,7 @@
             this.newButton = this.button('New', 'New prompt', () => { if (c.create()) this.focusDetail('title'); }, 'prompt-primary');
             this.focusKey(this.newButton, 'new'); actions.append(home, this.newButton); header.append(title, actions);
             this.status = this.el('div', 'prompt-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
+            this.markdownStatus = this.el('div', 'prompt-status'); this.markdownStatus.setAttribute('role', 'status'); this.markdownStatus.setAttribute('aria-live', 'polite');
             const layout = this.el('div', 'prompt-layout'), sidebar = this.el('aside', 'prompt-sidebar'); sidebar.setAttribute('aria-label', this.t('Browse', 'Browse prompts'));
             const search = this.el('div', 'prompt-search'), label = this.el('label', '', this.t('SearchLabel', 'Search your library')); label.htmlFor = 'prompt-search';
             this.search = this.el('input'); this.search.type = 'search'; this.search.id = 'prompt-search'; this.search.maxLength = root.LocalItabPrompts.LIMITS.query;
@@ -186,7 +187,7 @@
             this.main = this.el('main', 'prompt-main'); this.main.id = 'prompt-main'; this.main.tabIndex = -1; layout.append(sidebar, this.main);
             const footer = this.el('footer', 'prompt-footer'); footer.append(this.el('p', '', this.t('Scope', 'One library across all workspaces. Saved on this device; copying is always your choice.')),
                 this.el('p', '', this.t('Privacy', 'This is not an encrypted vault. Device access and unencrypted backups can expose saved text. Do not store passwords or API keys.')));
-            this.shell.append(brand, header, this.status, layout, footer); this.host.append(this.shell);
+            this.shell.append(brand, header, this.status, this.markdownStatus, layout, footer); this.host.append(this.shell);
             let saveComposition = null;
             this.main.addEventListener('compositionstart', event => { saveComposition = event.target; });
             const finishSaveComposition = event => { if (saveComposition === event.target) saveComposition = null; };
@@ -255,6 +256,7 @@
             this.renderStatus(); this.renderList();
             if (kind === 'list') return;
             this.markdownGeneration = (this.markdownGeneration || 0) + 1;
+            this.markdownStatus.textContent = ''; this.markdownStatus.classList.remove('error');
             const active = this.doc.activeElement, restore = this.main.contains(active) ? active?.dataset.promptFocus : null;
             if (restore && c.busy) this.rememberPendingFocus(restore);
             const desiredFocus = restore || (!c.busy && !this.destroyed && !this.openDialog &&
@@ -1047,9 +1049,9 @@
                 // No deferred download: acceptance must still refer to this saved selection/version.
                 if (!current()) return;
                 anchor.click();
-                if (current()) this.status.textContent = this.t('MarkdownRequested', 'Download requested.');
+                if (current()) { this.markdownStatus.classList.remove('error'); this.markdownStatus.textContent = this.t('MarkdownRequested', 'Download requested.'); }
             } catch (_) {
-                if (current()) this.status.textContent = this.t('MarkdownFailed', 'Markdown export could not be requested. Saved content is unchanged.');
+                if (current()) { this.markdownStatus.classList.add('error'); this.markdownStatus.textContent = this.t('MarkdownFailed', 'Markdown export could not be requested. Saved content is unchanged.'); }
             } finally {
                 try { anchor?.remove(); } catch (_) { /* Best-effort DOM cleanup. */ }
                 try { if (url) root.URL.revokeObjectURL(url); } catch (_) { /* No delayed retry or download. */ }
