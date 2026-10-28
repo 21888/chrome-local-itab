@@ -61,24 +61,37 @@
             this.status = this.dirty() ? 'unsaved' : 'saved'; this.schedule(); this.emit();
         }
         setComposing(value) { if (!this.#alive()) return; this.composing = value; if (value) this.cancelTimer(); else this.schedule(); this.emit(); }
-        async refresh() {
+        refresh() { return this.#refresh(false); }
+        async #refresh(recovery) {
             if (!this.#alive()) return;
             this.#requireSource();
             if (this.pending) { this.refreshNeeded = true; return; }
+            // Explicit Retry owns busy lifecycle state; background notifications
+            // remain passive reads. Reuse reconciliation, never discard a draft.
+            if (recovery) { this.cancelTimer(); this.pending = true; }
             try {
-                const next = await this.#store.read();
-                // A read can finish honestly without publishing into a detached editor.
-                if (!this.#ownsSource()) return next;
-                if (this.pending) { this.refreshNeeded = true; return; }
-                if (this.state && next.revision < this.state.revision) return;
-                const changed = this.state && (next.revision !== this.state.revision || next.content !== this.state.content || next.enabled !== this.state.enabled);
-                const retain = this.dirty() || this.composing || this.conflict || this.writeError;
-                if (changed && retain) { this.conflict = true; this.cancelTimer(); }
-                if (!retain) this.draft = next.content;
-                this.state = next; this.loaded = true; this.readError = false;
-                if (!retain) { this.error = null; this.status = 'saved'; }
-                this.emit(); return next;
+                if (recovery) { this.emit(); this.#requireSource(); }
+                let result;
+                do {
+                    if (recovery) this.refreshNeeded = false;
+                    const next = await this.#store.read();
+                    // A read can finish honestly without publishing into a detached editor.
+                    if (!this.#ownsSource()) return next;
+                    if (!recovery && this.pending) { this.refreshNeeded = true; return; }
+                    if (this.state && next.revision < this.state.revision) return;
+                    const changed = this.state && (next.revision !== this.state.revision || next.content !== this.state.content || next.enabled !== this.state.enabled);
+                    const retain = this.dirty() || this.composing || this.conflict || this.writeError;
+                    if (changed && retain) { this.conflict = true; this.cancelTimer(); }
+                    if (!retain) this.draft = next.content;
+                    this.state = next; this.loaded = true; this.readError = false;
+                    if (!retain) { this.error = null; this.status = 'saved'; }
+                    this.emit(); result = next;
+                } while (recovery && this.refreshNeeded && this.#ownsSource());
+                return result;
             } catch (error) { if (this.#ownsSource()) { this.error = error; this.readError = true; this.status = 'error'; this.cancelTimer(); this.emit(); } throw error; }
+            finally {
+                if (recovery) { this.pending = false; this.schedule(); this.emit(); }
+            }
         }
         async run(kind, value, revision) {
             if (this.pending || !this.#alive()) return;
@@ -112,7 +125,7 @@
         async retry() {
             if (this.pending || !this.#alive()) return;
             this.#requireSource();
-            if (!this.loaded || !this.hasUncommittedWork()) return this.refresh();
+            if (!this.loaded || !this.hasUncommittedWork()) return this.#refresh(true);
             this.cancelTimer(); this.pending = true;
             const revision = this.state.revision;
             let save = false, dispatched = false;

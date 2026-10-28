@@ -57,3 +57,8 @@ This extends the earlier bounded layout coverage only. It does not establish exh
 - While a submitted write waits, another Save click does not submit again. New typing remains in the original editor, and the older save cannot cause departure. A later explicit Save and switch saves the newer draft and then navigates.
 
 Three complete-flow tests passed, with **3,177/3,177** applicable Scratchpad/workspace tests passing (exit 0). This count is a focused set, not a new full-project run. It is DOM-model integration, not native browser navigation, installed extension migration, file import, or recovery-approval validation. No runtime source changed.
+
+
+## Explicit read Retry lifecycle (2026-10-28)
+
+[Read Retry lifecycle validation](scratchpad-read-retry-lifecycle-validation.md) records two reproduced gaps: duplicate Retry queued another read, and configuration reload did not see that explicit recovery as pending. The targeted owned-refresh path now preserves normal draft/conflict reconciliation and hidden-note privacy while the existing lifecycle waits. The real workspace Session already waited for these reads on the baseline; no workspace-switch data-loss fix is claimed.

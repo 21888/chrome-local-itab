@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm');
-const {createDocument}=require('./helpers/task-dom-model');
+const {createDocument,deferred}=require('./helpers/task-dom-model');
 const Workspaces=require('../shared/workspaces');
 const Scratchpad=require('../shared/local-scratchpad-store');
 const copy=value=>structuredClone(value),NOW='2026-10-26T19:00:00Z',DEFER=Symbol('normal');
@@ -72,19 +72,24 @@ async function model(){
  const f=fixture({[Scratchpad.KEY]:{...Scratchpad.initial(),enabled:true,content:'Synthetic original note'}});
  const manager=f.manager();await manager.ready();const second=await manager.create('Second');
  const navigations=[];
- async function page(id){
+ async function page(id, {readFailure=false}={}){
   const session=manager.capture(id);await session.ready();
   const document=createDocument({blurUnavailableFocus:true});
+  document.body.prepend=(...nodes)=>document.body.append(...nodes);
   const window={document,LocalItabScratchpad:{...Scratchpad},LocalItabWorkspaces:{session},setTimeout,clearTimeout,
-   addEventListener(){},removeEventListener(){},location:{href:'https://example.invalid/newtab.html'},URL,Blob};
+   addEventListener(){},removeEventListener(){},location:{href:'https://example.invalid/newtab.html',reload(){navigations.push('reload');}},URL,Blob};
   const context={window,document,setTimeout,clearTimeout,URL,Blob,console};vm.createContext(context);
   for(const file of ['shared/local-scratchpad-controller.js','shared/local-scratchpad-view.js','shared/local-content-lifecycle.js','shared/dialog-focus.js','shared/workspaces-view.js'])vm.runInContext(fs.readFileSync(file,'utf8'),context);
   const host=document.createElement('article');document.body.append(host);
-  const controller=new window.LocalItabScratchpad.Controller(new Scratchpad.Store(session.createBackend(Scratchpad.KEY)),{delay:60000});
-  const view=window.localScratchpadView=new window.LocalItabScratchpad.View(host,{controller});await controller.init();
+  const backend=session.createBackend(Scratchpad.KEY),read=backend.read.bind(backend);
+  const reads={fail:readFailure,count:0,gate:null,entered:null};
+  backend.read=async()=>{reads.count++;if(reads.fail)throw Error('synthetic initial read failure');
+   const value=await read();if(reads.gate){reads.entered?.resolve();await reads.gate.promise;}if(reads.afterGateError)throw Error('synthetic delayed read failure');return value;};
+  const controller=new window.LocalItabScratchpad.Controller(new Scratchpad.Store(backend),{delay:60000});
+  const view=window.localScratchpadView=new window.LocalItabScratchpad.View(host,{controller});await controller.init().catch(()=>{});
   const switcher=document.createElement('section'),managerHost=document.createElement('section');document.body.append(switcher,managerHost);
   const picker=window.workspacesView=window.LocalItabWorkspacesView.mount({switcher,managerHost,manager,session,lifecycle:window.LocalItabContentLifecycle,navigate:id=>navigations.push(id)});await picker.ready;
-  return{session,document,window,controller,view,picker,button(text){return document.querySelectorAll('button').find(n=>n.textContent===text)},edit(value){view.textarea.value=value;view.textarea.dispatch('input');},close(){picker.destroy();view.destroy();}};
+  return{session,document,window,controller,view,picker,reads,button(text){return document.querySelectorAll('button').find(n=>n.textContent===text)},edit(value){view.textarea.value=value;view.textarea.dispatch('input');},close(){picker.destroy();view.destroy();}};
  }
  return{f,manager,second,navigations,page};
 }
@@ -123,4 +128,50 @@ test('actual Save and switch: newer typing during submitted write is retained an
  assert(a.button('Stay here'));assert(!a.button('Stay here').disabled);
  m.f.hooks.set=null;a.button('Save and switch').dispatch('click');await tick();
  assert.deepEqual(m.navigations,[m.second.id]);assert.equal((await a.session.local.get([Scratchpad.KEY]))[Scratchpad.KEY].content,'Synthetic newer draft');a.close();
+});
+
+
+test('actual initial-read Retry: workspace switch waits for the original recovery before departure',async t=>{
+ const m=await model(),a=await m.page('default',{readFailure:true});
+ assert(!a.controller.loaded);assert(a.controller.readError);assert(!a.view.retry.hidden);
+ const otherBefore=copy(await m.manager.capture(m.second.id).local.get(null));
+ const original=copy(m.f.raw),writes=m.f.writes.length;
+ const gate=a.reads.gate=deferred();a.reads.entered=deferred();a.reads.fail=false;
+ let switching;t.after(async()=>{gate.resolve();await switching;a.close();});
+ a.view.retry.dispatch('click');await a.reads.entered.promise;
+ switching=a.picker.requestSwitch(m.second.id);await tick();
+ assert.deepEqual(m.navigations,[],'an unresolved explicit Retry must not be skipped by the workspace lifecycle');
+ // Session.flush already fences this real store read on the unchanged baseline.
+ assert.deepEqual(m.f.raw,original);assert.equal(m.f.writes.length,writes);
+ gate.resolve();await switching;
+ assert.deepEqual(m.navigations,[m.second.id]);assert(a.controller.loaded);assert.equal(a.controller.draft,'Synthetic original note');
+ assert.equal((await a.session.local.get([Scratchpad.KEY]))[Scratchpad.KEY].content,'Synthetic original note');
+ a.close();const other=await m.page(m.second.id);assert.deepEqual(await other.session.local.get(null),otherBefore);
+ await other.picker.requestSwitch('default');other.close();
+ const returned=await m.page('default');assert.equal(returned.controller.draft,'Synthetic original note');returned.close();
+ assert.deepEqual(m.navigations,[m.second.id,'default']);assert.deepEqual(m.f.providers,[]);
+});
+
+test('actual initial-read Retry: repeated activation dispatches only one original read',async t=>{
+ const m=await model(),a=await m.page('default',{readFailure:true});
+ const gate=a.reads.gate=deferred();a.reads.entered=deferred();a.reads.fail=false;
+ t.after(async()=>{gate.resolve();await tick();a.close();});
+ const reads=a.reads.count,writes=m.f.writes.length;
+ a.view.retry.dispatch('click');await a.reads.entered.promise;a.view.retry.dispatch('click');await tick();
+ assert.equal(m.f.writes.length,writes);gate.resolve();await tick();assert(!a.controller.readError);
+ assert.equal(a.reads.count-reads,1,'duplicate Retry must not queue a second recovery read');
+});
+
+
+test('actual initial-read Retry: configuration reload waits for the explicit recovery',async t=>{
+ const m=await model(),a=await m.page('default',{readFailure:true});
+ const gate=a.reads.gate=deferred();a.reads.entered=deferred();a.reads.fail=false;
+ t.after(async()=>{gate.resolve();await tick();a.close();});
+ a.view.retry.dispatch('click');await a.reads.entered.promise;
+ assert.equal(a.window.LocalItabContentLifecycle.reload(),false,'a requested recovery is still running, not clean for automatic reload');
+ assert.deepEqual(m.navigations,[]);assert(a.view.retry.disabled);
+ a.document.getElementById('local-content-reload-notice').querySelector('button').dispatch('click');
+ assert.deepEqual(m.navigations,[],'even explicit Reload must wait for the owned read');
+ gate.resolve();await tick();assert(!a.controller.error);assert.equal(a.controller.draft,'Synthetic original note');
+ assert.equal(a.window.LocalItabContentLifecycle.reload(),true);assert.deepEqual(m.navigations,['reload']);
 });
