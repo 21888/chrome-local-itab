@@ -116,7 +116,9 @@
             const details = el('details', 'focus-help');
             details.append(el('summary', '', t('focusDetails')), el('p', '', t('focusHelp')), el('p', '', t('focusTitleHelp')));
             host.replaceChildren(header, this.focusViewNotice, inputs, this.remaining, this.progressGroup, this.expectedEndGroup, this.status, this.workspaceNotice, controls, el('p', 'focus-help', t('focusBrief')), details, this.feedback, this.retry);
-            this.visibility = () => { this.cancelTick(); if (this.closed) return; if (!document.hidden && !this.isWorkspaceRetired()) { controller.tick(); controller.refresh().catch(() => {}); } this.render(); };
+            // Returning to the tab updates saved state, but is not an explicit
+            // Read latest state acknowledgement of a failed user action.
+            this.visibility = () => { this.cancelTick(); if (this.closed) return; if (!document.hidden && !this.isWorkspaceRetired()) { controller.tick(); controller.refresh({ background: true }).catch(() => {}); } this.render(); };
             document.addEventListener('visibilitychange', this.visibility);
             // Window bubbling lets nested dialogs, menus and disclosures own Escape first.
             this.focusViewKey = event => {

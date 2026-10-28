@@ -212,3 +212,32 @@ test('new minute editing after phase settlement wins over the older selection fo
     assert(edited);assert.equal(m.document.activeElement===m.view.minutes,true);assert.equal(m.view.minutes.value,'9');assert.equal(m.c.snapshot().durations.break,5);assert.equal(m.h.writes,before+1);assert.equal(m.view.start.disabled,true);
     unsubscribe();m.view.saveMinutes.focus();m.view.saveMinutes.dispatch('click');await m.h.flush();assert.equal(m.c.snapshot().durations.break,9);assert.equal(m.document.activeElement===m.view.start,true);assert.equal(m.c.snapshot().session.status,'ready');m.view.destroy();
 });
+
+for (const committed of [false, true]) for (const readFails of [false, true]) test(`tab return preserves failed Pause feedback (${committed ? 'saved without acknowledgement' : 'write rejected'}, ${readFails ? 'read fails' : 'read succeeds'})`, async t => {
+    const m = model(); t.after(() => m.view.destroy());
+    await m.h.flush(); await m.c.action('visibility', true); await m.c.action('start');
+    if (committed) m.h.failAfterWrite(true); else m.h.failWrite(true);
+    m.view.start.dispatch('click'); await m.h.flush();
+    const failure = m.c.error, saved = m.h.state, writes = m.h.writes;
+    assert.equal(failure?.code, 'WRITE'); assert.equal(m.view.retry.hidden, false);
+    assert.equal(saved.session.status, committed ? 'paused' : 'running');
+    m.h.failAfterWrite(false); m.h.failWrite(false); m.h.failRead(readFails);
+    m.document.hidden = true; m.document.listeners.get('visibilitychange')();
+    m.document.hidden = false; m.document.listeners.get('visibilitychange')(); await m.h.flush();
+    assert.equal(m.c.error, failure, 'returning to the tab is not an explicit Read latest state acknowledgement');
+    assert.equal(m.view.retry.hidden, false); assert.match(m.view.feedback.textContent, /Could not confirm/);
+    assert.equal(m.h.writes, writes); assert.deepEqual(m.h.state, saved, 'tab return never replays Pause');
+    m.h.failRead(false); m.view.retry.dispatch('click'); await m.h.flush();
+    assert.equal(m.c.error, null); assert.equal(m.view.retry.hidden, true);
+    assert.equal(m.h.writes, writes); assert.deepEqual(m.h.state, saved, 'explicit Retry is read-only');
+    assert.equal(m.view.start.textContent, committed ? 'Resume' : 'Pause');
+});
+
+test('tab return still recovers an initial timer read failure without an unacknowledged action', async t => {
+    const h = harness(); h.failRead(true); const m = model(h); t.after(() => m.view.destroy());
+    await h.flush(); assert.equal(m.c.error?.code, 'READ'); assert.equal(m.c.state, null);
+    h.failRead(false); m.document.hidden = true; m.document.listeners.get('visibilitychange')();
+    m.document.hidden = false; m.document.listeners.get('visibilitychange')(); await h.flush();
+    assert.equal(m.c.error, null); assert.equal(m.view.retry.hidden, true); assert.equal(m.h.writes, 0);
+    assert.equal(m.c.snapshot().session.status, 'ready');
+});
