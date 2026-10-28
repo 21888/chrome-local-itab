@@ -41,6 +41,10 @@ async function model(t, options = {}) {
         fetch() { effects.push('network'); }
     };
     if (options.workspace) window.LocalItabWorkspaces = { session: backend.workspace };
+    if (options.locale) {
+        const catalog = JSON.parse(fs.readFileSync(path.join(__dirname, `../_locales/${options.locale}/messages.json`), 'utf8'));
+        window.i18n = { t: key => catalog[key]?.message || key };
+    }
     const originalURL = window.URL;
     document.execCommand = () => effects.push('fallback');
     const create = document.createElement;
@@ -79,10 +83,10 @@ function remember(h) {
     return { raw: h.bytes(), io: { ...h.io }, state: c.state, stateJSON: JSON.stringify(c.state), draft: c.draft, generation: c.generation,
         error: c.error, readError: c.readError, writeError: c.writeError, conflict: c.conflict, pending: c.pending, pendingWrite: c.pendingWrite,
         status: c.status, composing: c.composing, editor: n.textarea.value, saved: n.savedPreview.value, savedHidden: n.savedPreview.hidden,
-        readOnly: n.textarea.readOnly, statusText: n.status.textContent, retryHidden: n.retry.hidden, retryDisabled: n.retry.disabled,
+        readOnly: n.textarea.readOnly, statusText: n.status.textContent, exportStatusText: n.exportStatus.textContent, retryHidden: n.retry.hidden, retryDisabled: n.retry.disabled,
         focus: h.document.activeElement, selection: [n.textarea.selectionStart, n.textarea.selectionEnd, n.textarea.selectionDirection] };
 }
-function same(h, before, { status = false } = {}) { const after = remember(h); if (status) { delete after.statusText; before = { ...before }; delete before.statusText; } assert.deepEqual(after, before); assert.deepEqual(h.effects, []); }
+function same(h, before, { exportStatus = false } = {}) { const after = remember(h); if (exportStatus) { delete after.exportStatusText; before = { ...before }; delete before.exportStatusText; } assert.deepEqual(after, before); assert.deepEqual(h.effects, []); }
 function move(node, parent, document = parent?.ownerDocument) {
     const original = { parent: node.parentElement, document: node.ownerDocument }; node.remove();
     if (document) { const adopt = n => { n.ownerDocument = document; n.children.forEach(adopt); }; adopt(node); }
@@ -99,6 +103,115 @@ function assertAbandoned(h) {
     assert.equal(h.timers.length, 0); for (const link of h.links) { assert.equal(link.removes, 1); assert.equal(link.parentElement || null, null); }
     assert.deepEqual(h.revoked, h.urls.map(item => item.url)); assert.deepEqual(h.effects, []);
 }
+for (const mode of ['write error', 'unsaved']) test(`export recovery feedback: ${mode} guidance survives export failure and successful retry`, async t => {
+    const h = await model(t); h.controller.setDraft(DRAFT); h.controller.cancelTimer();
+    if (mode === 'write error') {
+        h.backend.writeError = true; await assert.rejects(h.controller.save(), { code: 'WRITE' }); await tick();
+    }
+    const before = remember(h), status = h.nodes.status.textContent;
+    h.hooks.set('url', () => { throw Error('Synthetic export failure'); });
+    h.nodes.exportButton.dispatch('click');
+    assert.equal(h.nodes.status.textContent, status, 'export failure must preserve storage/unsaved guidance');
+    assert.match(h.nodes.exportStatus.textContent, /Could not export/); same(h, before, { exportStatus: true });
+    h.nodes.exportButton.dispatch('click');
+    assert.equal(h.nodes.exportStatus.textContent, '', 'successful download request retires only its own error');
+    assert.equal(h.nodes.status.textContent, status); same(h, before);
+    assert.equal(h.clicks.length, 1); assert.equal(h.blobs.length, 2);
+    assert.equal(new TextDecoder('utf-8', { ignoreBOM: true }).decode(await h.blobs[1].arrayBuffer()), DRAFT);
+    assert.equal(h.nodes.exportStatus.getAttribute('role'), 'status'); assert.equal(h.nodes.exportStatus.getAttribute('aria-live'), 'polite');
+    if (mode === 'write error') {
+        assert(!h.nodes.retry.hidden); h.backend.writeError = false;
+        h.nodes.retry.dispatch('click'); await tick(); await tick();
+        assert.equal(JSON.parse(h.bytes()).content, DRAFT); assert.equal(h.io.commits, 1);
+        assert.equal(h.controller.error, null); assert(!h.controller.hasUncommittedWork());
+        assert.equal(h.nodes.exportStatus.textContent, ''); assert.match(h.nodes.status.textContent, /Saved on this device/);
+    }
+});
+
+for (const locale of ['en', 'zh_CN']) for (const mode of ['lost acknowledgement', 'read error', 'conflict', 'pending save']) {
+    test(`export recovery feedback: ${locale} ${mode} preserves its draft and recovery choices`, async t => {
+        const h = await model(t, { locale }); h.controller.setDraft(DRAFT); h.controller.cancelTimer(); let pending;
+        if (mode === 'lost acknowledgement') {
+            h.backend.ackError = true; await assert.rejects(h.controller.save(), { code: 'WRITE' }); await tick();
+            assert.equal(h.io.commits, 1); assert.equal(h.controller.error.code, 'WRITE');
+        } else if (mode === 'read error') {
+            h.backend.readError = true; await assert.rejects(h.controller.refresh(), { code: 'READ' });
+        } else if (mode === 'conflict') {
+            await new api.Store(h.backend).mutate({ kind: 'content', value: 'Synthetic other-page saved text', revision: h.controller.state.revision }); await tick();
+            assert(h.controller.conflict);
+        } else {
+            h.backend.writeGate = deferred(); h.backend.writeEntered = deferred(); pending = h.controller.save();
+            await h.backend.writeEntered.promise; assert(h.controller.pendingWrite);
+        }
+        const before = remember(h), controls = [h.nodes.useSaved.hidden, h.nodes.useSaved.disabled, h.nodes.replace.hidden, h.nodes.replace.disabled];
+        h.hooks.set('click', () => { throw Error('Synthetic download activation failure'); }); h.nodes.exportButton.dispatch('click');
+        assert.equal(h.nodes.exportStatus.textContent, h.window.i18n.t('scratchpadExportError')); same(h, before, { exportStatus: true });
+        assert.deepEqual([h.nodes.useSaved.hidden, h.nodes.useSaved.disabled, h.nodes.replace.hidden, h.nodes.replace.disabled], controls);
+        h.nodes.exportButton.dispatch('click'); assert.equal(h.nodes.exportStatus.textContent, ''); same(h, before);
+        assert.equal(new TextDecoder('utf-8', { ignoreBOM: true }).decode(await h.blobs[1].arrayBuffer()), DRAFT);
+        if (mode === 'lost acknowledgement') {
+            h.backend.ackError = false; const writes = h.io.writes;
+            h.nodes.retry.dispatch('click'); await tick(); await tick();
+            assert.equal(h.io.writes, writes); assert.equal(h.io.commits, 1); assert.equal(h.controller.error, null);
+            assert.equal(JSON.parse(h.bytes()).content, DRAFT); assert.equal(h.nodes.status.textContent, h.window.i18n.t('scratchpadSaved'));
+        }
+        if (pending) { h.backend.writeGate.resolve(); await pending; assert.equal(JSON.parse(h.bytes()).content, DRAFT); }
+    });
+}
+
+test('export recovery feedback: failed export survives same-source render but a newer real draft retires it', async t => {
+    const h = await model(t); h.controller.setDraft(DRAFT); h.controller.cancelTimer();
+    h.hooks.set('url', () => { throw Error('Synthetic export failure'); }); h.view.exportText();
+    const error = h.nodes.exportStatus.textContent; assert.match(error, /Could not export/);
+    h.view.render(); h.controller.emit(); assert.equal(h.nodes.exportStatus.textContent, error);
+    h.controller.setDraft('Synthetic newer draft 😀'); h.controller.cancelTimer();
+    assert.equal(h.nodes.exportStatus.textContent, ''); assert.match(h.nodes.status.textContent, /Unsaved/);
+    assert.equal(h.io.commits, 0);
+});
+
+test('export recovery feedback: live composing text retries without saving or replacing controller guidance', async t => {
+    const h = await model(t); h.nodes.textarea.dispatch('compositionstart'); h.nodes.textarea.value = 'a\uD800b';
+    const status = h.nodes.status.textContent, draft = h.controller.draft, generation = h.controller.generation;
+    h.view.exportText(); assert.match(h.nodes.exportStatus.textContent, /cannot be saved or exported exactly/);
+    assert.equal(h.nodes.status.textContent, status); assert.equal(h.blobs.length, 0);
+    h.nodes.textarea.value = '合成文本 😀\r\n'; h.view.exportText();
+    assert.equal(h.nodes.exportStatus.textContent, ''); assert.equal(h.nodes.status.textContent, status);
+    assert.equal(new TextDecoder('utf-8', { ignoreBOM: true }).decode(await h.blobs[0].arrayBuffer()), '合成文本 😀\r\n');
+    assert.equal(h.controller.draft, draft); assert.equal(h.controller.generation, generation); assert(h.controller.composing); assert.equal(h.io.commits, 0);
+});
+
+for (const stage of ['translation', 'successful cleanup']) for (const boundary of ['substitute', 'move', 'destroy']) {
+    test(`export recovery feedback: ${stage} cannot write after ${boundary} of its own region`, async t => {
+        const h = await model(t), f = await h.foreign(); h.nodes.exportStatus.textContent = 'Prior export error';
+        const lose = () => {
+            if (boundary === 'substitute') h.view.exportStatus = f.nodes.exportStatus;
+            else if (boundary === 'move') move(h.nodes.exportStatus, f.host);
+            else h.view.destroy();
+        };
+        if (stage === 'translation') {
+            h.window.i18n = { t(key) { if (key === 'scratchpadExportError') lose(); return key; } };
+            h.hooks.set('url', () => { throw Error('Synthetic export failure'); });
+        } else h.hooks.set('remove', lose);
+        const other = remember(f), main = h.nodes.status.textContent; h.view.exportText();
+        assert.equal(h.nodes.status.textContent, main); same(f, other);
+        assert.equal(h.nodes.exportStatus.textContent, boundary === 'destroy' ? '' : 'Prior export error');
+    });
+}
+
+test('export recovery feedback: empty region uses existing error tokens without an empty layout row', () => {
+    const css = fs.readFileSync(path.join(__dirname, '../local-scratchpad.css'), 'utf8');
+    assert.match(css, /\.scratchpad-export-status:empty\s*\{\s*display:\s*none;/);
+    assert.match(css, /\.scratchpad-error\s*\{\s*color:\s*var\(--template-error\)/);
+});
+
+test('export recovery feedback: a feedback getter moving the new region cannot authorize a foreign write', async t => {
+    const h = await model(t), f = await h.foreign(); let value = 'Original export feedback', armed = false;
+    Object.defineProperty(h.nodes.exportStatus, 'textContent', { configurable: true,
+        get() { if (armed) { armed = false; move(h.nodes.exportStatus, f.host); } return value; }, set(next) { value = next; } });
+    h.hooks.set('url', () => { armed = true; throw Error('Synthetic export failure'); });
+    const main = h.nodes.status.textContent, other = remember(f); h.view.exportText();
+    assert.equal(value, 'Original export feedback'); assert.equal(h.nodes.status.textContent, main); same(f, other);
+});
 const replace = {
     controller(h, f) { h.view.controller = f.controller; return () => { h.view.controller = h.controller; }; },
     store(h, f) { h.controller.store = f.store; return () => { h.controller.store = h.store; }; },
@@ -106,6 +219,7 @@ const replace = {
     host(h, f) { h.view.host = f.host; return () => { h.view.host = h.host; }; },
     textarea(h, f) { h.view.textarea = f.nodes.textarea; return () => { h.view.textarea = h.nodes.textarea; }; },
     status(h, f) { h.view.status = f.nodes.status; return () => { h.view.status = h.nodes.status; }; },
+    exportStatus(h, f) { h.view.exportStatus = f.nodes.exportStatus; return () => { h.view.exportStatus = h.nodes.exportStatus; }; },
     exportButton(h, f) { h.view.exportButton = f.nodes.exportButton; return () => { h.view.exportButton = h.nodes.exportButton; }; }
 };
 const changeContext = {
@@ -120,7 +234,7 @@ for (const entry of ['direct', 'button']) for (const [name, change] of Object.en
     if (entry === 'direct') h.view.exportText(); else h.nodes.exportButton.dispatch('click');
     assertAbandoned(h); assert.equal(h.blobs.length, 0); same(h, before); same(f, other); restore(); h.view.exportText(); await assertExport(h, EXACT);
 });
-for (const transfer of ['same-document', 'cross-document']) for (const name of ['textarea', 'status', 'exportButton', 'host', 'wrapper']) test(`export source: ${transfer} transfer of ${name} cannot dispatch`, async t => {
+for (const transfer of ['same-document', 'cross-document']) for (const name of ['textarea', 'status', 'exportStatus', 'exportButton', 'host', 'wrapper']) test(`export source: ${transfer} transfer of ${name} cannot dispatch`, async t => {
     const h = await model(t), foreignDocument = transfer === 'same-document' ? h.document : createDocument(), target = foreignDocument.createElement('section'); foreignDocument.body.append(target);
     const node = h[name] || h.nodes[name], restore = move(node, target), before = remember(h);
     h.view.exportText(); assertAbandoned(h); assert.equal(h.blobs.length, 0); same(h, before); restore(); h.view.exportText(); await assertExport(h, EXACT);
@@ -157,7 +271,7 @@ for (const kind of ['raw saved', 'dirty', 'IME', 'write error', 'lost acknowledg
 });
 for (const text of ['a\uD800b', '\uDC00', 'valid\uD83D']) test('export Unicode: rejects incomplete code points without lossy Blob construction ' + JSON.stringify(text), async t => {
     const h = await model(t); h.controller.setDraft(text); h.controller.cancelTimer(); const before = remember(h);
-    h.view.exportText(); assert.equal(h.blobs.length, 0); assertAbandoned(h); assert.match(h.nodes.status.textContent, /cannot be saved or exported exactly/); same(h, before, { status: true });
+    h.view.exportText(); assert.equal(h.blobs.length, 0); assertAbandoned(h); assert.match(h.nodes.exportStatus.textContent, /cannot be saved or exported exactly/); same(h, before, { exportStatus: true });
 });
 for (const stage of ['blob', 'url', 'create', 'href', 'download', 'append', 'click getter']) for (const [name, change] of Object.entries(changeContext)) test(`export boundary: ${stage} ${name} transfer suppresses actual click`, async t => {
     const h = await model(t, { workspace: true }), f = await h.foreign(), before = remember(h), other = remember(f); let restore;
@@ -182,7 +296,7 @@ for (const stage of ['blob', 'url', 'create', 'href', 'download', 'append', 'cli
     const h = await model(t), before = remember(h); h.hooks.set(stage, () => { throw Error('Synthetic ' + stage + ' failure'); });
     assert.doesNotThrow(() => h.view.exportText()); assert.deepEqual(h.revoked, h.urls.map(item => item.url));
     for (const link of h.links) assert.equal(link.removes, 1, 'each returned anchor removal attempted once');
-    assert.match(h.nodes.status.textContent, /Could not export/); same(h, before, { status: true });
+    assert.match(h.nodes.exportStatus.textContent, /Could not export/); same(h, before, { exportStatus: true });
 });
 for (const stage of ['blob', 'url', 'create', 'href', 'download', 'append', 'click', 'remove', 'timer']) test(`export failure: ${stage} cannot overwrite substituted foreign status`, async t => {
     const h = await model(t), f = await h.foreign(), before = remember(h), other = remember(f);
@@ -256,8 +370,8 @@ for (const prop of ['parentElement', 'ownerDocument']) test(`export ownership: o
 });
 test('export resources: already-issued success remains independent of later failed user export', async t => {
     const h = await model(t); h.view.exportText(); h.hooks.set('blob', () => { throw Error('second fails'); }); h.view.exportText();
-    assert.equal(h.clicks.length, 1); assert.equal(h.links[0].removes, 1); assert.match(h.nodes.status.textContent, /Could not export/);
-    h.flushTimers(); assert.deepEqual(h.revoked, [h.urls[0].url]); assert.match(h.nodes.status.textContent, /Could not export/);
+    assert.equal(h.clicks.length, 1); assert.equal(h.links[0].removes, 1); assert.match(h.nodes.exportStatus.textContent, /Could not export/);
+    h.flushTimers(); assert.deepEqual(h.revoked, [h.urls[0].url]); assert.match(h.nodes.exportStatus.textContent, /Could not export/);
 });
 // Transfer is test setup, not an export cleanup attempt. Bypass only the
 // fixture's instrumented remove wrapper while retaining actual DOM detachment.

@@ -10,6 +10,7 @@ const SAVED = '\uFEFFSaved 中文 😀\r\n<literal>\rEnd\n';
 const DRAFT = '\uFEFFUnsaved 中文 🪷\r\n<draft>\rEnd\n';
 const IMPORT = '\uFEFFImported 中文 🌱\r\n<preview>\rEnd\n';
 const fields = [
+    ['exportStatus', 'textContent', '', 'New owner export feedback'],
     ['findInput', 'value', '', 'New owner query 中文 😀'],
     ['findStatus', 'textContent', '', 'New owner find result'],
     ['findPanel', 'hidden', true, false],

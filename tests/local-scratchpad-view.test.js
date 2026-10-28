@@ -57,7 +57,7 @@ test('DOM model: corrupt later read makes retained draft readonly until valid re
 });
 test('DOM model: export preserves stored CRLF and rejects lossy invalid Unicode without rejecting long text',async()=>{
     const m=model();await m.flush();await m.backend.write({...m.api.initial(),enabled:true,revision:1,content:'a\r\nb\rc'});await m.flush();m.view.textarea.value='a\nb\nc';m.view.exportText();assert.equal(await m.blobs[0].text(),'a\r\nb\rc');
-    m.controller.setDraft('a\uD800b');m.view.exportText();assert.equal(m.blobs.length,1);assert.match(m.view.status.textContent,/cannot be saved or exported exactly/);
+    m.controller.setDraft('a\uD800b');m.view.exportText();assert.equal(m.blobs.length,1);assert.match(m.view.exportStatus.textContent,/cannot be saved or exported exactly/);
     m.controller.setDraft('x'.repeat(32001));m.view.exportText();assert.equal((await m.blobs[1].text()).length,32001);assert.equal(m.view.count.getAttribute('aria-live'),undefined);m.view.destroy();
 });
 test('integration: unsettled Scratchpad blocks dashboard hide; saved follows normal visibility',()=>{

@@ -222,7 +222,7 @@
     function exportContextCurrent(view, owner, context) {
         const { lifecycle, chains } = owner, { controller, store, backend, host, nodes, document } = lifecycle;
         const matches = () => !lifecycle.retired && !view.closed && view.controller === controller && controller.store === store &&
-            store?.backend === backend && view.host === host && ['textarea', 'status', 'exportButton'].every(name => view[name] === nodes[name]) &&
+            store?.backend === backend && view.host === host && ['textarea', 'status', 'exportStatus', 'exportButton'].every(name => view[name] === nodes[name]) &&
             (!context || (backend?.workspace === context.workspace && context.workspace?.id === context.workspaceId &&
                 context.workspace?.generation === context.workspaceGeneration && root.LocalItabWorkspaces?.session === context.session)) &&
             chains.every(chain => copyChainOwned(chain, document, true));
@@ -483,6 +483,8 @@
             this.savedPreview = el('textarea', 'scratchpad-text scratchpad-saved-preview'); this.savedPreview.readOnly = true; this.savedPreview.spellcheck = false; this.savedPreview.setAttribute('aria-label', t('scratchpadSavedPreview'));
             this.savedLabel = el('p', 'scratchpad-help', t('scratchpadSavedPreview'));
             this.status = el('p', 'scratchpad-status'); this.status.setAttribute('role', 'status'); this.status.setAttribute('aria-live', 'polite');
+            this.exportStatus = el('p', 'scratchpad-status scratchpad-export-status scratchpad-error');
+            this.exportStatus.setAttribute('role', 'status'); this.exportStatus.setAttribute('aria-live', 'polite');
             this.retry = button('scratchpadRetry', event => run(() => recover(this, event, 'retry', 'retry')));
             this.useSaved = button('scratchpadUseSaved', event => run(() => recover(this, event, 'useSaved', 'useSaved')));
             this.replace = button('scratchpadReplace', event => run(() => recover(this, event, 'replace', 'replaceWithDraft')));
@@ -605,10 +607,10 @@
             const controls = el('div', 'scratchpad-controls'); controls.append(this.retry, this.useSaved, this.replace, this.copySavedButton, this.exportButton, this.copyButton, this.copySelectionButton, this.importButton, this.findButton, this.findSelectionButton);
             this.count = el('p', 'scratchpad-help scratchpad-count');
             const details = el('details', 'scratchpad-help'); details.append(el('summary', '', t('scratchpadDetails')), el('p', '', t('scratchpadHelp')));
-            callHost(host, 'replaceChildren', [header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.savedLabel, this.savedPreview, controls, this.copyStatus, this.importFile, this.importPanel, this.findPanel, details]);
+            callHost(host, 'replaceChildren', [header, this.textarea, this.count, el('p', 'scratchpad-help', t('scratchpadLimits')), this.status, this.exportStatus, this.savedLabel, this.savedPreview, controls, this.copyStatus, this.importFile, this.importPanel, this.findPanel, details]);
             // Render and teardown retain these original controls even if a public
             // property is replaced. Detachment alone does not change ownership.
-            lifecycle.nodes = Object.fromEntries(['textarea', 'savedPreview', 'savedLabel', 'status', 'retry', 'useSaved', 'replace',
+            lifecycle.nodes = Object.fromEntries(['textarea', 'savedPreview', 'savedLabel', 'status', 'exportStatus', 'retry', 'useSaved', 'replace',
                 'exportButton', 'copyButton', 'copySelectionButton', 'copySavedButton', 'copyStatus', 'importButton', 'importFile',
                 'importPanel', 'importInfo', 'importPreview', 'importAppend', 'importApply', 'importCancel', 'findButton',
                 'findSelectionButton', 'findPanel', 'findInput', 'findPrevious', 'findNext', 'findClose', 'findStatus', 'count']
@@ -623,8 +625,8 @@
                 chains: Object.values(lifecycle.nodes).map(copyNodeChain) });
             // Export retains its construction source and controls. Workspace and
             // Session are captured per call so late setup does not disable recovery.
-            viewExports.set(this, { lifecycle, active: false,
-                chains: ['textarea', 'status', 'exportButton'].map(name => copyNodeChain(lifecycle.nodes[name])) });
+            viewExports.set(this, { lifecycle, active: false, feedbackDraft: undefined,
+                chains: ['textarea', 'status', 'exportStatus', 'exportButton'].map(name => copyNodeChain(lifecycle.nodes[name])) });
             // Import changes saved text, so it shares the construction source's
             // workspace/session identity rather than export's recovery admission.
             viewImports.set(this, { lifecycle, session: null, epoch: 0,
@@ -638,7 +640,7 @@
                     'findPrevious', 'findNext', 'findClose', 'findStatus'].map(name => [name, copyNodeChain(lifecycle.nodes[name])])) });
             // Teardown authority is private and captured before any prior-owner
             // invalidation callback can reparent or adopt the new controls.
-            lifecycle.teardownChains = Object.fromEntries(['findInput', 'findStatus', 'findPanel', 'findButton',
+            lifecycle.teardownChains = Object.fromEntries(['exportStatus', 'findInput', 'findStatus', 'findPanel', 'findButton',
                 'findPrevious', 'findNext', 'importApply', 'importAppend', 'importPanel', 'importPreview', 'importInfo', 'importFile']
                 .map(name => [name, copyNodeChain(lifecycle.nodes[name])]));
             // Pin the original controls before callbacks can run. Receipts also
@@ -778,6 +780,12 @@
                 if (read(nodes.status, 'textContent') !== text) write(nodes.status, 'textContent', text);
                 const classes = read(nodes.status, 'classList');
                 call(classes, 'toggle', ['scratchpad-error', Boolean(state.error || state.conflict)]);
+                const exports = viewExports.get(this), exportDraft = state.composing ? editorText : state.draft;
+                // A different source retires only its export error. The main
+                // saving/read/conflict guidance remains Controller-owned.
+                if (current() && exports.feedbackDraft !== exportDraft) {
+                    exports.feedbackDraft = exportDraft; write(nodes.exportStatus, 'textContent', '');
+                }
                 write(nodes.retry, 'hidden', code === 'SUBSCRIPTION' || (!state.error || Boolean(state.conflict)) && !state.readError ||
                     (state.loaded && ['TEXT', 'TEXT_LIMIT', 'SIZE_LIMIT'].includes(code)));
                 write(nodes.retry, 'disabled', Boolean(state.pending));
@@ -1356,23 +1364,28 @@
             // Reserve before observable getters can synchronously reenter export.
             owner.active = true;
             const { controller, backend, document, nodes } = owner.lifecycle;
-            let context, feedback, generation, url, link, remove, urls, revoke, scheduled = false, removed = false, revoked = false, failed = false;
+            let context, feedback, exportFeedback, draft, generation, url, link, remove, urls, revoke,
+                scheduled = false, removed = false, revoked = false, failed = false, dispatched = false;
             const current = () => exportContextCurrent(this, owner, context);
             const removeLink = () => { if (link && !removed) { removed = true; remove?.call(link); } };
             const revokeURL = () => { if (url !== undefined && !revoked) { revoked = true; revoke.call(urls, url); } };
             const report = key => {
-                if (!current() || controller.generation !== generation || nodes.status.textContent !== feedback) return;
-                const message = t(key);
-                if (current() && controller.generation === generation && nodes.status.textContent === feedback) nodes.status.textContent = message;
+                const ownsFeedback = () => current() && controller.generation === generation && nodes.status.textContent === feedback &&
+                    nodes.exportStatus.textContent === exportFeedback && current() && controller.generation === generation;
+                if (!ownsFeedback()) return;
+                const message = key ? t(key) : '';
+                if (ownsFeedback()) {
+                    owner.feedbackDraft = draft; nodes.exportStatus.textContent = message;
+                }
             };
             try {
                 if (!current()) return;
                 const workspace = backend?.workspace;
                 context = { workspace, workspaceId: workspace?.id, workspaceGeneration: workspace?.generation, session: root.LocalItabWorkspaces?.session };
                 if (!current()) return;
-                feedback = nodes.status.textContent; generation = controller.generation;
+                feedback = nodes.status.textContent; exportFeedback = nodes.exportStatus.textContent; generation = controller.generation;
                 // Preserve exact raw newlines, except during genuine IME composition.
-                const draft = controller.composing ? nodes.textarea.value : controller.draft;
+                draft = controller.composing ? nodes.textarea.value : controller.draft;
                 if (!current()) return;
                 if (!api.isUnicode(draft)) { report('scratchpadInvalidText'); return; }
                 const Blob = root.Blob; if (!current()) return;
@@ -1397,7 +1410,7 @@
                 const anchorCurrent = () => link.href === url && link.download === 'local-itab-scratchpad.txt' &&
                     link.ownerDocument === document && link.parentElement === body && current();
                 if (!anchorCurrent() || !anchorCurrent()) return;
-                click.call(link);
+                click.call(link); dispatched = true;
                 // Activation is already issued; later source changes cannot undo it.
                 removeLink();
                 schedule.call(root, () => { try { revokeURL(); } catch (_) {} }, 1000); scheduled = true;
@@ -1405,7 +1418,9 @@
             finally {
                 try { removeLink(); } catch (_) { failed = true; }
                 if (!scheduled) try { revokeURL(); } catch (_) { failed = true; }
-                try { if (failed) report('scratchpadExportError'); } catch (_) {}
+                // Download activation is not proof of a saved file. A successful
+                // request only clears this export's old error, never save state.
+                try { if (failed) report('scratchpadExportError'); else if (dispatched) report(null); } catch (_) {}
                 owner.active = false;
             }
         }
@@ -1439,6 +1454,7 @@
             // setter transfers it. Detached original chains remain eligible;
             // new parents/documents do not. Retired teardown never restores focus.
             for (const action of [
+                () => writeTeardownProperty(lifecycle, 'exportStatus', 'textContent', ''),
                 () => writeTeardownProperty(lifecycle, 'findInput', 'value', ''),
                 () => writeTeardownProperty(lifecycle, 'findStatus', 'textContent', ''),
                 () => writeTeardownProperty(lifecycle, 'findPanel', 'hidden', true),

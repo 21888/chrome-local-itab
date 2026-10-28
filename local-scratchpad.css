@@ -12,6 +12,7 @@
 .scratchpad-button:disabled { opacity: .55; cursor: default; }
 .local-scratchpad-card :focus-visible, .local-scratchpad-settings :focus-visible { outline: 2px solid var(--template-focus); outline-offset: 3px; }
 .scratchpad-status { margin: 10px 0; font-size: 13px; line-height: 1.6; }
+.scratchpad-export-status:empty { display: none; }
 .scratchpad-error { color: var(--template-error); }
 .scratchpad-enable-label { display: flex; align-items: center; gap: 10px; }
 .local-scratchpad-settings { margin-top: 16px; }
