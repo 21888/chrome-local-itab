@@ -139,10 +139,11 @@ test('DOM model: settings date preview owns one UI-only visible timer and cleans
         const observer = m.observers[0]; assert(observer); assert(observer.targets.some(({ node }) => node === m.host)); assert(observer.targets.some(({ node }) => node === m.parent));
         for (const { options } of observer.targets) { assert(!options.subtree); assert.deepEqual(Array.from(options.attributeFilter), ['hidden', 'style', 'class']); }
         assert(!observer.targets.some(({ node }) => node === m.view.datePreview));
-        m.input('title', 'a\uD800b'); m.view.exportText(); const error = m.view.status.textContent; assert.match(error, /invalid Unicode/);
+        m.input('title', 'a\uD800b'); m.view.exportText(); const error = m.view.exportStatus.textContent; assert.match(error, /invalid Unicode/);
+        assert.equal(m.view.status.textContent, 'Unsaved changes');
         m.view.date.focus(); const reads = m.reads, generation = m.controller.generation;
         m.now(new Date(2026, 9, 11)); m.tick(); m.fire('focus'); observer.fn();
-        assert.equal(m.view.status.textContent, error); assert.equal(m.document.activeElement, m.view.date); assert.equal(m.tickCount(), 1);
+        assert.equal(m.view.exportStatus.textContent, error); assert.equal(m.view.status.textContent, 'Unsaved changes'); assert.equal(m.document.activeElement, m.view.date); assert.equal(m.tickCount(), 1);
         assert.match(m.view.datePreview.textContent, /2026-10-11 · Today$/);
         m.document.hidden = true; await m.document.listeners.get('visibilitychange')(); assert.equal(m.tickCount(), 0);
         m.document.hidden = false; await m.document.listeners.get('visibilitychange')(); assert.equal(m.tickCount(), 1);
@@ -154,7 +155,7 @@ test('DOM model: settings date preview owns one UI-only visible timer and cleans
         m.parent.style.visibility = ''; observer.fn(); assert.equal(m.tickCount(), 1);
         m.fire('pagehide'); assert.equal(m.tickCount(), 0); m.fire('focus'); assert.equal(m.tickCount(), 0);
         m.fire('pageshow'); assert.equal(m.tickCount(), 1);
-        assert.equal(m.reads, reads); assert.equal(m.writes, 0); assert.equal(m.controller.generation, generation); assert.equal(m.view.status.textContent, error);
+        assert.equal(m.reads, reads); assert.equal(m.writes, 0); assert.equal(m.controller.generation, generation); assert.equal(m.view.exportStatus.textContent, error); assert.equal(m.view.status.textContent, 'Unsaved changes');
         m.input('title', 'Launch'); await previewImport(m, importFile('bad')); const importError = m.view.importInfo.textContent;
         m.view.importCancel.focus(); m.tick(); m.fire('focus');
         assert.equal(m.view.importInfo.textContent, importError); assert.equal(m.document.activeElement, m.view.importCancel);
@@ -271,6 +272,181 @@ test('DOM model: failed save keeps draft exportable and Retry confirms it', asyn
     m.writeFail(false); m.view.retry.dispatch('click'); await m.flush(); assert.equal(m.raw.title, 'Draft recovery'); assert(!m.view.hasUncommittedWork()); m.view.destroy();
 });
 
+test('Countdown export feedback: failed export and successful export retry preserve the WRITE recovery guidance', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        m.writeFail(true); m.input('title', 'Synthetic recovery draft');
+        m.view.saveButton.dispatch('click'); await m.flush();
+        const status = m.view.status.textContent, error = m.controller.error, attempt = m.controller.lastAttempt;
+        assert.equal(error.code, 'WRITE'); assert.match(status, /Could not confirm the save/);
+        const createURL = m.window.URL.createObjectURL;
+        m.window.URL.createObjectURL = () => { throw Error('synthetic export failure'); };
+        m.view.exportButton.dispatch('click');
+        assert.equal(m.view.status.textContent, status, 'export must not replace save recovery guidance');
+        assert.match(m.view.exportStatus.textContent, /Could not export/);
+        assert(m.view.exportStatus.classList.contains('countdown-error'));
+        assert.equal(m.controller.error, error); assert.equal(m.controller.lastAttempt, attempt);
+        assert(!m.view.retry.hidden); assert(!m.view.retry.disabled); assert(m.view.hasUncommittedWork());
+        m.window.URL.createObjectURL = createURL; m.view.exportButton.dispatch('click');
+        assert.equal(await m.blobs[0].text(), 'Synthetic recovery draft\n2026-10-11\n');
+        assert.equal(m.view.exportStatus.textContent, ''); assert(!m.view.exportStatus.classList.contains('countdown-error'));
+        assert.equal(m.view.status.textContent, status); assert.equal(m.controller.error, error);
+        assert.equal(m.controller.lastAttempt, attempt); assert.equal(m.writes, 0); assert.equal(m.raw.title, 'Launch');
+        m.writeFail(false); m.view.retry.dispatch('click'); await m.flush();
+        assert.equal(m.raw.title, 'Synthetic recovery draft'); assert.equal(m.writes, 1); assert(!m.view.hasUncommittedWork());
+    } finally { m.view.destroy(); }
+});
+
+test('Countdown export feedback: failed export keeps unsaved guidance and successful retry never saves', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        m.input('title', 'Synthetic unsaved draft');
+        const status = m.view.status.textContent, generation = m.controller.generation, reads = m.reads;
+        assert.equal(status, 'Unsaved changes');
+        const createURL = m.window.URL.createObjectURL;
+        m.window.URL.createObjectURL = () => { throw Error('synthetic export failure'); };
+        m.view.exportButton.focus(); m.view.exportButton.dispatch('click');
+        assert.equal(m.view.status.textContent, status, 'export must not hide unsaved changes');
+        assert.match(m.view.exportStatus.textContent, /Could not export/);
+        assert.equal(m.view.exportStatus.getAttribute('role'), 'status'); assert.equal(m.view.exportStatus.getAttribute('aria-live'), 'polite');
+        assert.equal(m.document.activeElement, m.view.exportButton); assert(!m.view.saveButton.disabled);
+        m.window.URL.createObjectURL = createURL; m.view.exportButton.dispatch('click');
+        assert.equal(m.view.exportStatus.textContent, ''); assert.equal(m.view.status.textContent, status);
+        assert.equal(m.controller.generation, generation); assert.equal(m.reads, reads); assert.equal(m.writes, 0);
+        assert.equal(m.raw.title, 'Launch'); assert(m.view.hasUncommittedWork());
+        assert.equal(await m.blobs[0].text(), 'Synthetic unsaved draft\n2026-10-11\n');
+    } finally { m.view.destroy(); }
+});
+
+test('Countdown export feedback: dashboard failure and retry preserve failed Hide recovery through a calendar tick', async () => {
+    const m = model({ raw: configured() }); await m.flush();
+    try {
+        m.writeFail(true); m.view.hideButton.dispatch('click'); await m.flush();
+        const status = m.view.status.textContent, error = m.controller.error, attempt = m.controller.lastAttempt;
+        assert.equal(error.code, 'WRITE'); assert(!m.host.hidden); assert(!m.view.retry.hidden);
+        const createURL = m.window.URL.createObjectURL;
+        m.window.URL.createObjectURL = () => { throw Error('synthetic export failure'); };
+        m.view.exportButton.dispatch('click');
+        assert.equal(m.view.status.textContent, status); assert.match(m.view.exportStatus.textContent, /Could not export/);
+        assert.equal(m.view.exportStatus.getAttribute('role'), 'status'); assert.equal(m.view.exportStatus.getAttribute('aria-live'), 'polite');
+        const exportError = m.view.exportStatus.textContent;
+        m.tick(); m.view.render(); assert.equal(m.view.exportStatus.textContent, exportError);
+        assert.equal(m.view.status.textContent, status); assert.equal(m.controller.error, error); assert.equal(m.controller.lastAttempt, attempt);
+        m.window.URL.createObjectURL = createURL; m.view.exportButton.dispatch('click');
+        assert.equal(m.view.exportStatus.textContent, ''); assert.equal(m.view.status.textContent, status);
+        assert.equal(await m.blobs[0].text(), 'Launch\n2026-10-11\n'); assert.equal(m.writes, 0); assert.equal(m.raw.enabled, true);
+        m.writeFail(false); m.view.retry.dispatch('click'); await m.flush();
+        assert(m.host.hidden); assert.equal(m.raw.enabled, false); assert.equal(m.raw.title, 'Launch'); assert.equal(m.writes, 1);
+    } finally { m.view.destroy(); }
+});
+
+for (const locale of ['en', 'zh_CN']) {
+    for (const recovery of ['conflict', 'read-error', 'validation']) {
+        test(`Countdown export feedback: ${locale} export errors preserve ${recovery} guidance and controls`, async () => {
+            const catalog = JSON.parse(fs.readFileSync(require.resolve(`../_locales/${locale}/messages.json`), 'utf8'));
+            const m = model({ settings: true, raw: configured(), translate: (key, values) => (catalog[key]?.message || key).replace(/\$1/g, values[0] || '') }); await m.flush();
+            try {
+                m.input('title', 'Synthetic retained draft');
+                if (recovery === 'conflict') {
+                    await new m.api.Store(m.backend).mutate({ kind: 'save', value: { enabled: true, title: 'Synthetic remote title', targetDate: '2027-01-01' }, revision: m.raw.revision }); await m.flush();
+                } else if (recovery === 'read-error') {
+                    m.readFail(true); await assert.rejects(m.controller.refresh());
+                } else {
+                    m.input('date', '2026-02-30'); m.view.saveButton.dispatch('click'); await m.flush();
+                }
+                const status = m.view.status.textContent, draft = { ...m.controller.draft }, state = m.controller.state;
+                const error = m.controller.error, attempt = m.controller.lastAttempt, reads = m.reads, writes = m.writes;
+                const controls = () => [m.view.saveButton.disabled, m.view.cancelButton.disabled, m.view.retry.hidden, m.view.retry.disabled, m.view.useSaved.hidden, m.view.useSaved.disabled, m.view.replace.hidden, m.view.replace.disabled];
+                const beforeControls = controls(), createURL = m.window.URL.createObjectURL;
+                m.window.URL.createObjectURL = () => { throw Error('synthetic export failure'); };
+                m.view.exportButton.dispatch('click');
+                assert.equal(m.view.exportStatus.textContent, catalog.countdownExportError.message);
+                assert.equal(m.view.status.textContent, status); assert.deepEqual(controls(), beforeControls);
+                m.window.URL.createObjectURL = createURL; m.view.exportButton.dispatch('click');
+                assert.equal(m.view.exportStatus.textContent, ''); assert.equal(m.view.status.textContent, status);
+                assert.deepEqual(controls(), beforeControls); assert.deepEqual(m.controller.draft, draft);
+                assert.equal(m.controller.state, state); assert.equal(m.controller.error, error); assert.equal(m.controller.lastAttempt, attempt);
+                assert.equal(m.reads, reads); assert.equal(m.writes, writes);
+                assert.equal(await m.blobs[0].text(), `${draft.title}\n${draft.targetDate}\n`);
+            } finally { m.view.destroy(); }
+        });
+    }
+}
+
+test('Countdown export feedback: only changed title/date retires an old export failure', async () => {
+    for (const settings of [false, true]) {
+        const m = model({ settings, raw: configured() }); await m.flush();
+        try {
+            m.window.URL.createObjectURL = () => { throw Error('synthetic export failure'); };
+            m.view.exportButton.dispatch('click'); const error = m.view.exportStatus.textContent;
+            m.view.render(); assert.equal(m.view.exportStatus.textContent, error);
+            if (settings) {
+                m.view.enabled.checked = false; m.view.enabled.dispatch('change');
+                assert.equal(m.view.exportStatus.textContent, error, 'visibility is not part of a text export');
+                m.input('title', 'Synthetic changed source');
+            } else {
+                await new m.api.Store(m.backend).mutate({ kind: 'save', value: { enabled: true, title: 'Synthetic changed source', targetDate: '2026-10-11' }, revision: m.raw.revision }); await m.flush();
+            }
+            assert.equal(m.view.exportStatus.textContent, ''); assert(!m.view.exportStatus.classList.contains('countdown-error'));
+            assert.equal(m.controller.error, null);
+        } finally { m.view.destroy(); }
+    }
+});
+
+test('Countdown export feedback: composing export uses live DOM text without overwriting unsaved guidance', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    try {
+        m.view.title.dispatch('compositionstart'); m.view.title.value = 'a\uD800b';
+        const status = m.view.status.textContent, generation = m.controller.generation;
+        m.view.exportButton.dispatch('click'); assert.match(m.view.exportStatus.textContent, /invalid Unicode/);
+        assert.equal(m.view.status.textContent, status); assert(m.controller.composing);
+        m.view.title.value = '合成草稿 🎉'; m.view.exportButton.dispatch('click');
+        assert.equal(m.view.exportStatus.textContent, ''); assert.equal(m.view.status.textContent, status);
+        assert.equal(await m.blobs[0].text(), '合成草稿 🎉\n2026-10-11\n');
+        assert.equal(m.controller.generation, generation); assert.equal(m.controller.draft.title, 'Launch'); assert.equal(m.writes, 0);
+    } finally { m.view.destroy(); }
+});
+
+test('Countdown export feedback: a failed download activation cleans up only export resources and supports retry', async () => {
+    for (const settings of [false, true]) {
+        const m = model({ settings, raw: configured() }); await m.flush();
+        try {
+            const create = m.document.createElement, anchors = [], revoked = [];
+            m.document.createElement = tag => {
+                const node = create(tag);
+                if (tag === 'a') { anchors.push(node); node.click = () => { throw Error('synthetic download activation failure'); }; }
+                return node;
+            };
+            m.window.URL.revokeObjectURL = url => revoked.push(url);
+            const status = m.view.status.textContent;
+            m.view.exportButton.dispatch('click');
+            assert.equal(m.view.status.textContent, status); assert.match(m.view.exportStatus.textContent, /Could not export/);
+            assert.equal(anchors.length, 1); assert(!anchors[0].isConnected); assert.deepEqual(revoked, ['blob:test']);
+            m.document.createElement = create; m.view.exportButton.dispatch('click');
+            assert.equal(m.view.exportStatus.textContent, ''); assert.equal(m.view.status.textContent, status);
+            assert.equal(m.writes, 0); assert.equal(m.blobs.length, 2); assert.equal(m.controller.error, null);
+        } finally { m.view.destroy(); }
+    }
+});
+
+test('Countdown export feedback: pending Save and newer draft keep their own guidance through export failure', async () => {
+    const m = model({ settings: true, raw: configured() }); await m.flush();
+    let release;
+    try {
+        m.input('title', 'Synthetic submitted draft'); m.hold(new Promise(done => release = done));
+        m.view.saveButton.dispatch('click'); await m.flush(); assert(m.controller.pending);
+        const pendingStatus = m.view.status.textContent; assert.equal(pendingStatus, 'Saving…');
+        m.window.URL.createObjectURL = () => { throw Error('synthetic export failure'); };
+        m.view.exportButton.dispatch('click');
+        assert.equal(m.view.status.textContent, pendingStatus); assert.match(m.view.exportStatus.textContent, /Could not export/);
+        assert.equal(m.writes, 0); m.input('title', 'Synthetic newer draft');
+        assert.equal(m.view.exportStatus.textContent, ''); assert.equal(m.view.status.textContent, pendingStatus);
+        release(); m.hold(null); await m.flush();
+        assert.equal(m.view.status.textContent, 'Unsaved changes'); assert.equal(m.view.title.value, 'Synthetic newer draft');
+        assert.equal(m.raw.title, 'Synthetic submitted draft'); assert.equal(m.writes, 1); assert(!m.view.saveButton.disabled);
+    } finally { release?.(); m.view.destroy(); }
+});
+
 test('DOM model: conflict shows saved preview; Load saved and Replace require deliberate confirmation', async () => {
     const m = model({ settings: true, raw: configured() }); await m.flush(); m.input('title', 'My draft');
     await new m.api.Store(m.backend).mutate({ kind: 'save', value: { enabled: true, title: 'Other page', targetDate: '2027-01-01' }, revision: m.raw.revision }); await m.flush();
@@ -293,7 +469,7 @@ test('DOM model: long drafts export exactly; invalid Unicode export fails visibl
     const m = model({ settings: true, raw: configured() }); await m.flush(); const long = '😀'.repeat(81); m.input('title', long);
     m.view.saveButton.dispatch('click'); await m.flush(); assert.match(m.view.status.textContent, /too long/);
     m.view.exportButton.dispatch('click'); assert.equal(await m.blobs[0].text(), `${long}\n2026-10-11\n`);
-    m.input('title', 'a\uD800b'); m.view.exportButton.dispatch('click'); assert.equal(m.blobs.length, 1); assert.equal(m.view.title.value, 'a\uD800b'); assert.match(m.view.status.textContent, /invalid Unicode/); m.view.destroy();
+    m.input('title', 'a\uD800b'); m.view.exportButton.dispatch('click'); assert.equal(m.blobs.length, 1); assert.equal(m.view.title.value, 'a\uD800b'); assert.match(m.view.exportStatus.textContent, /invalid Unicode/); assert.equal(m.view.status.textContent, 'Unsaved changes'); m.view.destroy();
 });
 
 test('source boundary: Countdown UI uses semantic theme tokens, wrapping and native text without network', () => {
@@ -329,7 +505,7 @@ test('DOM model: edits made while Cancel reads saved values retain their generat
 
 test('DOM model: oversized recovery export reports its own limit and never truncates text', async () => {
     const m = model({ raw: configured(), settings: true }); await m.flush(); const long = 'x'.repeat(32001); m.input('title', long);
-    m.view.exportText(); assert.equal(m.blobs.length, 0); assert.equal(m.view.title.value, long); assert.match(m.view.status.textContent, /too large to export/); m.view.destroy();
+    m.view.exportText(); assert.equal(m.blobs.length, 0); assert.equal(m.view.title.value, long); assert.match(m.view.exportStatus.textContent, /too large to export/); assert.equal(m.view.status.textContent, 'Unsaved changes'); m.view.destroy();
 });
 
 test('DOM model: conflicted Hide stays recoverable after another page disables the saved card', async () => {

@@ -80,14 +80,35 @@
         if (c.pending) return t('countdownSaving');
         return t(c.hasUncommittedWork() ? 'countdownUnsaved' : 'countdownSaved');
     }
+    function makeExportStatus() {
+        const status = el('p', 'countdown-status countdown-export-status');
+        status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
+        return status;
+    }
+    function clearExportStatus(status) {
+        setText(status, ''); status.classList.remove('countdown-error');
+    }
+    function syncExportStatus(view, fields) {
+        // Export owns a separate receipt. Keep it through unrelated renders, but
+        // do not show an old source's failure after its title/date has changed.
+        if (!view.exportFields || view.exportFields.title !== fields?.title || view.exportFields.targetDate !== fields?.targetDate) clearExportStatus(view.exportStatus);
+        view.exportFields = { title: fields?.title, targetDate: fields?.targetDate };
+    }
     function exportText(fields, status) {
         let url, link;
+        // Requesting a download does not confirm a file was saved. A successful
+        // retry only retires this export's old error, never the storage guidance.
+        clearExportStatus(status);
         try {
             const blob = new root.Blob([api.exportText(fields)], { type: 'text/plain;charset=utf-8' });
             url = root.URL.createObjectURL(blob); link = el('a'); link.href = url; link.download = 'local-itab-countdown.txt';
             document.body.append(link); link.click(); link.remove();
             root.setTimeout(() => root.URL.revokeObjectURL(url), 1000);
-        } catch (error) { link?.remove(); if (url) root.URL.revokeObjectURL(url); setText(status, t(error?.code === 'SIZE_LIMIT' ? 'countdownExportTooLarge' : validationKey(error) || 'countdownExportError')); }
+        } catch (error) {
+            link?.remove(); if (url) root.URL.revokeObjectURL(url);
+            setText(status, t(error?.code === 'SIZE_LIMIT' ? 'countdownExportTooLarge' : validationKey(error) || 'countdownExportError'));
+            status.classList.add('countdown-error');
+        }
     }
     function daysText(days) {
         if (days === 0) return t('countdownToday');
@@ -130,11 +151,14 @@
             this.edit.href = root.LocalItabWorkspacesView?.settingsUrl?.(workspaceId, 'countdown-settings') ||
                 root.chrome?.runtime?.getURL?.(settingsPath) || settingsPath;
             this.edit.target = '_blank'; this.edit.rel = 'noopener';
-            this.exportButton = button('countdownExport', () => exportText(controller.state, this.status));
+            this.exportStatus = makeExportStatus();
+            this.exportButton = button('countdownExport', () => {
+                syncExportStatus(this, controller.state); exportText(controller.state, this.exportStatus);
+            });
             this.retry = button('countdownRetry', () => run(() => controller.retry()));
             this.useSaved = button('countdownUseSaved', () => run(() => controller.useSaved()));
             const controls = el('div', 'countdown-controls'); controls.append(this.edit, this.copyButton, this.copyMilestoneButton, this.hideButton, this.exportButton, this.retry, this.useSaved);
-            host.replaceChildren(header, this.title, this.date, this.remaining, controls, this.copyStatus, this.status);
+            host.replaceChildren(header, this.title, this.date, this.remaining, controls, this.copyStatus, this.status, this.exportStatus);
             this.visibility = () => {
                 if (document.hidden || document.visibilityState === 'hidden') this.invalidateCopy();
                 if (!this.closed) this.render();
@@ -180,6 +204,7 @@
             setText(this.remaining, visible && hasDays ? daysText(days) : '');
             setText(this.status, c.conflict && !c.readError ? t('countdownCardConflict') : c.error || c.readError || c.pending ? statusText(c) : '');
             this.status.classList.toggle('countdown-error', Boolean(c.error || c.readError || c.conflict));
+            syncExportStatus(this, state);
             this.hideButton.disabled = !c.loaded || Boolean(c.pending || c.readError || c.conflict || c.error);
             this.exportButton.disabled = !state?.title || !state?.targetDate;
             this.retry.hidden = !canRetry(c); this.retry.disabled = Boolean(c.pending);
@@ -344,6 +369,7 @@
                 if (controller.pending || controller.composing || controller.readError || !controller.conflict) return;
                 if (root.confirm(t('countdownReplaceConfirm'))) this.runAction(this.replace, () => controller.replaceWithDraft());
             });
+            this.exportStatus = makeExportStatus();
             this.exportButton = button('countdownExport', () => this.exportText());
             this.importButton = button('countdownImport', () => this.chooseImport());
             this.importFile = el('input'); this.importFile.type = 'file'; this.importFile.accept = '.txt,text/plain'; this.importFile.hidden = true;
@@ -366,7 +392,7 @@
             const controls = el('div', 'countdown-controls'); controls.append(this.saveButton, this.cancelButton, this.exportButton, this.importButton, this.retry, this.useSaved, this.replace);
             this.savedLabel = el('p', 'countdown-help', t('countdownSavedPreview'));
             this.savedPreview = el('pre', 'countdown-saved-preview'); this.savedPreview.setAttribute('aria-label', t('countdownSavedPreview'));
-            host.replaceChildren(inputs, el('p', 'countdown-help', t('countdownDateHelp')), enableLabel, el('p', 'countdown-help', t('countdownEnableHelp')), controls, this.importFile, this.importPanel, this.status, this.savedLabel, this.savedPreview, el('p', 'countdown-help', t('countdownHelp')));
+            host.replaceChildren(inputs, el('p', 'countdown-help', t('countdownDateHelp')), enableLabel, el('p', 'countdown-help', t('countdownEnableHelp')), controls, this.importFile, this.importPanel, this.status, this.exportStatus, this.savedLabel, this.savedPreview, el('p', 'countdown-help', t('countdownHelp')));
             this.title.addEventListener('input', () => { if (controller.loaded) controller.setDraft({ title: this.title.value }); });
             this.date.addEventListener('input', () => { if (controller.loaded) controller.setDraft({ targetDate: this.date.value }); });
             this.enabled.addEventListener('change', () => { if (controller.loaded) controller.setDraft({ enabled: this.enabled.checked }); });
@@ -543,7 +569,7 @@
         }
         exportText() {
             const draft = this.controller.composing ? { ...this.controller.draft, title: this.title.value, targetDate: this.date.value } : this.controller.draft;
-            exportText(draft, this.status);
+            syncExportStatus(this, draft); exportText(draft, this.exportStatus);
         }
         render() {
             if (this.closed) return;
@@ -572,6 +598,7 @@
             const saved = c.state;
             setText(this.savedPreview, saved ? `${saved.title || t('countdownNotConfigured')}\n${saved.targetDate || ''}\n${t(saved.enabled ? 'countdownShown' : 'countdownHidden')}` : t('countdownNotConfigured'));
             setText(this.status, statusText(c)); this.status.classList.toggle('countdown-error', Boolean(c.error || c.readError || c.conflict));
+            syncExportStatus(this, c.composing ? { title: this.title.value, targetDate: this.date.value } : draft);
             this.renderDatePreview();
         }
         hasUncommittedWork() { return this.controller.hasUncommittedWork(); }
