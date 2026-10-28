@@ -815,15 +815,113 @@ test('Settings action focus: no-op actions, synchronous throws and rejected prom
         assert.equal(focused(), outcome === 'render-throw' ? 1 : 0); m.controller.pending = false; m.view.destroy();
     }
 });
-test('Settings action focus: the initial-load Retry keeps its inherited asynchronous behavior', async () => {
+test('Settings action focus: initial-load Retry uses the existing synchronous busy handoff only once', async () => {
     const m = model({ settings: true, failRead: true }); await m.flush(); const focused = countStatusFocus(m), release = pauseReads(m);
     m.readFail(false); m.view.retry.focus(); m.view.retry.dispatch('click');
-    assert(!m.controller.loaded); assert(!m.controller.pending); assert(!m.view.retry.disabled);
-    assert(m.document.activeElement === m.view.retry, 'focus remains with the expected owner'); assert.equal(focused(), 0);
+    assert(!m.controller.loaded); assert(m.controller.pending); assert(m.view.retry.disabled);
+    assert(m.document.activeElement === m.view.status, 'focus remains with the expected owner'); assert.equal(focused(), 1);
     release(); await m.flush(); assert(m.controller.loaded); assert(m.view.retry.hidden);
-    // Initial load has no synchronous pending render. Its later hidden-button
-    // focus loss is outside this fix; never add an asynchronous focus callback.
-    assert(m.document.activeElement === m.document.body, 'focus remains with the expected owner'); assert.equal(focused(), 0); assert.equal(m.writes, 0); m.view.destroy();
+    // No asynchronous focus callback is needed: the stable status already owns
+    // focus before the original Retry disappears after the read succeeds.
+    assert(m.document.activeElement === m.view.status, 'focus remains with the expected owner'); assert.equal(focused(), 1); assert.equal(m.writes, 0); m.view.destroy();
+});
+test('Initial-read recovery: Retry owns a pending read and rejects repeated activation until settlement', async () => {
+    const m = model({ settings: true, failRead: true }); await m.flush(); const release = pauseReads(m);
+    try {
+        m.readFail(false); const reads = m.reads;
+        m.view.retry.focus(); m.view.retry.dispatch('click');
+        assert(m.controller.pending, 'the explicit recovery read must be represented as pending');
+        assert(m.view.retry.disabled); m.view.retry.dispatch('click');
+        release(); await m.flush(); assert.equal(m.reads, reads + 1);
+        assert(m.controller.loaded); assert(!m.controller.pending); assert.equal(m.writes, 0);
+    } finally { release(); m.view.destroy(); }
+});
+
+test('Initial-read recovery: successful keyboard-owned Retry cannot strand focus on body', async () => {
+    const m = model({ settings: true, failRead: true, raw: configured() }); await m.flush(); const release = pauseReads(m);
+    try {
+        m.readFail(false); m.view.retry.focus(); m.view.retry.dispatch('click');
+        release(); await m.flush();
+        assert(m.controller.loaded); assert(m.view.retry.hidden);
+        assert(m.document.activeElement === m.view.status, 'existing visible status retains this recovery focus instead of body');
+        assert.equal(m.view.title.value, 'Launch'); assert.equal(m.view.date.value, '2026-10-11');
+        assert.equal(m.writes, 0); assert(!m.view.hasUncommittedWork());
+    } finally { release(); m.view.destroy(); }
+});
+
+test('Initial-read recovery: another failed read stays recoverable and successful Retry never writes until explicit Save', async () => {
+    const m = model({ settings: true, failRead: true, raw: configured() }); await m.flush();
+    try {
+        const original = { ...m.raw }, focused = countStatusFocus(m);
+        m.view.retry.focus(); m.view.retry.dispatch('click'); assert(m.controller.pending);
+        await m.flush(); assert(!m.controller.loaded); assert(!m.controller.pending);
+        assert.equal(m.controller.error.code, 'READ'); assert(!m.view.retry.hidden); assert(!m.view.retry.disabled);
+        assert(m.view.title.disabled); assert(m.document.activeElement === m.view.status); assert.equal(focused(), 1);
+        assert.deepEqual(m.raw, original); assert.equal(m.writes, 0);
+        m.readFail(false); m.view.retry.focus(); m.view.retry.dispatch('click'); await m.flush();
+        assert(m.controller.loaded); assert.equal(m.controller.error, null); assert.equal(m.writes, 0); assert.equal(focused(), 2);
+        m.input('title', 'Synthetic recovered editor draft'); assert(!m.view.saveButton.disabled); assert.equal(m.writes, 0);
+        m.view.saveButton.dispatch('click'); await m.flush();
+        assert.equal(m.raw.title, 'Synthetic recovered editor draft'); assert.equal(m.writes, 1);
+        assert.equal(m.raw.targetDate, original.targetDate); assert.equal(m.raw.enabled, original.enabled);
+    } finally { m.view.destroy(); }
+});
+
+for (const outcome of ['success', 'failure']) for (const target of ['outside', 'body']) {
+    test(`Initial-read recovery: late ${outcome} never takes newer ${target} focus`, async () => {
+        const m = model({ settings: true, failRead: true }); await m.flush(); const release = pauseReads(m), focused = countStatusFocus(m);
+        try {
+            m.readFail(outcome === 'failure'); m.view.retry.focus(); m.view.retry.dispatch('click');
+            assert(m.document.activeElement === m.view.status); assert.equal(focused(), 1);
+            const newer = target === 'body' ? m.document.body : m.document.createElement('input');
+            if (target !== 'body') m.document.body.append(newer); newer.focus();
+            release(); await m.flush();
+            assert(m.document.activeElement === newer); assert.equal(focused(), 1); assert.equal(m.writes, 0);
+        } finally { release(); m.view.destroy(); }
+    });
+}
+
+for (const boundary of ['pagehide', 'hidden', 'removed', 'destroyed']) {
+    test(`Initial-read recovery: ${boundary} before read settlement never reclaims focus or writes`, async () => {
+        const m = model({ settings: true, failRead: true, raw: configured() }); await m.flush(); const release = pauseReads(m), focused = countStatusFocus(m);
+        try {
+            m.readFail(false); m.view.retry.focus(); m.view.retry.dispatch('click'); assert.equal(focused(), 1);
+            if (boundary === 'pagehide') m.fire('pagehide');
+            else if (boundary === 'hidden') m.parent.hidden = true;
+            else if (boundary === 'removed') m.host.remove();
+            else m.view.destroy();
+            m.document.body.focus(); release(); await m.flush();
+            assert(m.document.activeElement === m.document.body); assert.equal(focused(), 1); assert.equal(m.writes, 0);
+            if (boundary === 'destroyed') assert(!m.controller.loaded);
+        } finally { release(); if (!m.view.closed) m.view.destroy(); }
+    });
+}
+
+test('Initial-read recovery: the actual shared lifecycle waits for Retry before allowing a clean Save-and-switch', async () => {
+    const m = model({ settings: true, failRead: true, raw: configured() }); await m.flush(); const release = pauseReads(m);
+    try {
+        m.window.localCountdownSettingsView = m.view;
+        vm.runInNewContext(fs.readFileSync(require.resolve('../shared/local-content-lifecycle'), 'utf8'), { window: m.window, document: m.document, setTimeout, clearTimeout });
+        m.readFail(false); m.view.retry.focus(); m.view.retry.dispatch('click');
+        const lifecycle = m.window.LocalItabContentLifecycle; assert(lifecycle.pending());
+        let settled = false; const saving = lifecycle.saveDrafts().then(clean => { settled = true; return clean; });
+        await m.flush(); assert(!settled, 'workspace handoff must wait for the real initial recovery read');
+        release(); assert.equal(await saving, true); assert(!lifecycle.pending());
+        assert(!lifecycle.hasUncommittedWork()); assert.equal(m.view.title.value, 'Launch'); assert.equal(m.writes, 0);
+    } finally { release(); m.view.destroy(); }
+});
+
+test('Initial-read recovery: a saved-state notification during pending Retry retains the newest loaded values', async () => {
+    const m = model({ settings: true, failRead: true, raw: configured() }); await m.flush(); const release = pauseReads(m);
+    try {
+        m.readFail(false); m.view.retry.dispatch('click'); assert(m.controller.pending);
+        await m.backend.write(configured({ title: 'Synthetic other-page milestone', targetDate: '2028-02-29', revision: 2 }));
+        const externalWrites = m.writes; assert.equal(externalWrites, 1); assert(m.controller.refreshNeeded);
+        release(); await m.flush();
+        assert.equal(m.view.title.value, 'Synthetic other-page milestone'); assert.equal(m.view.date.value, '2028-02-29');
+        assert.equal(m.controller.state.revision, 2); assert(!m.controller.pending); assert(!m.controller.refreshNeeded);
+        assert.equal(m.writes, externalWrites); assert.equal(m.controller.error, null);
+    } finally { release(); m.view.destroy(); }
 });
 test('Settings action focus: hidden, detached, inert or destroyed settings cannot receive status focus', async () => {
     for (const phase of ['before', 'during']) for (const boundary of ['document', 'visibilityState', 'ancestor', 'display', 'visibility', 'collapse', 'inert', 'detached', 'destroyed', 'remounted']) {

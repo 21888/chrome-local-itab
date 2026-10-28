@@ -157,7 +157,11 @@
         async retry() {
             this.#requireSubscription();
             if (this.pending || this.closed || this.composing) return;
-            if (!this.loaded) return this.refresh();
+            // No editable draft exists before the first successful read. Use the
+            // existing read-only recovery path so Retry owns a synchronous busy
+            // state, duplicate activations are blocked and the view can hand off
+            // focus before the Retry button disappears after loading.
+            if (!this.loaded) return this.useSaved();
             const attempt = this.lastAttempt, read = ++this.readGeneration;
             let replay = false, outcome;
             this.pending = true; this.updateStatus(); this.emit();
