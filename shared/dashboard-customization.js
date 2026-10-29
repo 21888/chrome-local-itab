@@ -2,6 +2,7 @@
     'use strict';
     const tr = (key, fallback) => { const value = global.i18n?.t(key); return value && value !== key ? value : fallback; };
     let saved = {}, previewing = false;
+    const editors = new Set();
 
     function paint(value = {}) {
         global.LocalItabCardLayout?.paint(value);
@@ -182,7 +183,15 @@
                 if (pending) panel.focus({ preventScroll: true });
                 else if (focusBeforePending) { focusBeforePending.focus({ preventScroll: true }); focusBeforePending = null; }
             } });
-            const finish = () => { cleanup(); overlay.remove(); open = false; launch.textContent = tr('customizeDashboard', 'Customize'); };
+            // Own raw invalid input as well as validated preview changes. The
+            // lifecycle may defer departure, but never saves this dialog for us.
+            const lifecycle = {
+                pending: () => !editor.closed && editor.pending,
+                dirty: () => !editor.closed && (editor.pending || invalid.size > 0 ||
+                    Object.keys(editor.draft).some(key => JSON.stringify(editor.draft[key]) !== JSON.stringify(editor.original[key])))
+            };
+            editors.add(lifecycle);
+            const finish = () => { editors.delete(lifecycle); cleanup(); overlay.remove(); open = false; launch.textContent = tr('customizeDashboard', 'Customize'); };
             const close = () => { if (editor.cancel()) finish(); };
             const cleanup = global.LocalItabDialog.open(overlay, controls.backgroundMode, close);
             for (const [key, control] of Object.entries(controls)) control.addEventListener('input', () => {
@@ -228,5 +237,7 @@
         });
         return launch;
     }
-    global.LocalItabCustomization = { apply, paint, Controller, mount, get isPreviewing() { return previewing; } };
+    global.LocalItabCustomization = { apply, paint, Controller, mount, get isPreviewing() { return previewing; },
+        get pending() { return [...editors].some(editor => editor.pending()); },
+        hasUncommittedWork: () => [...editors].some(editor => editor.dirty()) };
 })(window);
